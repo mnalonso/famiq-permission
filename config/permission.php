@@ -26,6 +26,20 @@ return [
 
         'role' => Spatie\Permission\Models\Role::class,
 
+        /*
+         * The model to use to represent groups. Groups can aggregate users and allow
+         * assigning roles or permissions collectively.
+         */
+
+        'group' => Spatie\Permission\Models\Group::class,
+
+        /*
+         * The model to use to represent projects. Projects provide contextual scoping
+         * for roles and permissions when the teams feature is enabled.
+         */
+
+        'project' => Spatie\Permission\Models\Project::class,
+
     ],
 
     'table_names' => [
@@ -69,6 +83,14 @@ return [
          */
 
         'role_has_permissions' => 'role_has_permissions',
+
+        /*
+         * Tables needed to support grouping users and contextual assignments.
+         */
+
+        'groups' => 'groups',
+        'group_has_models' => 'group_has_models',
+        'projects' => 'projects',
     ],
 
     'column_names' => [
@@ -94,6 +116,12 @@ return [
          */
 
         'team_foreign_key' => 'team_id',
+
+        /*
+         * Change this if you need to customize the foreign key used for groups pivots.
+         */
+
+        'group_foreign_key' => 'group_id',
     ],
 
     /*

@@ -16,18 +16,37 @@ return new class extends Migration
         $columnNames = config('permission.column_names');
         $pivotRole = $columnNames['role_pivot_key'] ?? 'role_id';
         $pivotPermission = $columnNames['permission_pivot_key'] ?? 'permission_id';
+        $groupPivot = $columnNames['group_foreign_key'] ?? 'group_id';
 
         throw_if(empty($tableNames), Exception::class, 'Error: config/permission.php not loaded. Run [php artisan config:clear] and try again.');
         throw_if($teams && empty($columnNames['team_foreign_key'] ?? null), Exception::class, 'Error: team_foreign_key on config/permission.php not loaded. Run [php artisan config:clear] and try again.');
+        throw_if(empty($columnNames['group_foreign_key'] ?? null), Exception::class, 'Error: group_foreign_key on config/permission.php not loaded. Run [php artisan config:clear] and try again.');
 
-        Schema::create($tableNames['permissions'], static function (Blueprint $table) {
+        Schema::create($tableNames['projects'], static function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('description');
+            $table->timestamps();
+        });
+
+        Schema::create($tableNames['permissions'], static function (Blueprint $table) use ($teams, $columnNames, $tableNames) {
             // $table->engine('InnoDB');
             $table->bigIncrements('id'); // permission id
+            if ($teams || config('permission.testing')) {
+                $table->unsignedBigInteger($columnNames['team_foreign_key'])->nullable();
+                $table->index($columnNames['team_foreign_key'], 'permissions_team_foreign_key_index');
+            }
             $table->string('name');       // For MyISAM use string('name', 225); // (or 166 for InnoDB with Redundant/Compact row format)
             $table->string('guard_name'); // For MyISAM use string('guard_name', 25);
             $table->timestamps();
-
-            $table->unique(['name', 'guard_name']);
+            if ($teams || config('permission.testing')) {
+                $table->foreign($columnNames['team_foreign_key'])
+                    ->references('id')
+                    ->on($tableNames['projects'])
+                    ->nullOnDelete();
+                $table->unique([$columnNames['team_foreign_key'], 'name', 'guard_name']);
+            } else {
+                $table->unique(['name', 'guard_name']);
+            }
         });
 
         Schema::create($tableNames['roles'], static function (Blueprint $table) use ($teams, $columnNames) {
@@ -94,9 +113,13 @@ return new class extends Migration
             }
         });
 
-        Schema::create($tableNames['role_has_permissions'], static function (Blueprint $table) use ($tableNames, $pivotRole, $pivotPermission) {
+        Schema::create($tableNames['role_has_permissions'], static function (Blueprint $table) use ($tableNames, $pivotRole, $pivotPermission, $teams, $columnNames) {
             $table->unsignedBigInteger($pivotPermission);
             $table->unsignedBigInteger($pivotRole);
+            if ($teams) {
+                $table->unsignedBigInteger($columnNames['team_foreign_key'])->nullable();
+                $table->index($columnNames['team_foreign_key'], 'role_has_permissions_team_foreign_key_index');
+            }
 
             $table->foreign($pivotPermission)
                 ->references('id') // permission id
@@ -108,7 +131,38 @@ return new class extends Migration
                 ->on($tableNames['roles'])
                 ->onDelete('cascade');
 
-            $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
+            if ($teams) {
+                $table->foreign($columnNames['team_foreign_key'])
+                    ->references('id')
+                    ->on($tableNames['projects'])
+                    ->nullOnDelete();
+
+                $table->primary([$columnNames['team_foreign_key'], $pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_team_primary');
+            } else {
+                $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
+            }
+        });
+
+        Schema::create($tableNames['groups'], static function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('name');
+            $table->string('guard_name');
+            $table->string('description')->nullable();
+            $table->timestamps();
+            $table->unique(['name', 'guard_name']);
+        });
+
+        Schema::create($tableNames['group_has_models'], static function (Blueprint $table) use ($groupPivot, $columnNames, $tableNames) {
+            $table->unsignedBigInteger($groupPivot);
+            $table->string('model_type');
+            $table->unsignedBigInteger($columnNames['model_morph_key']);
+            $table->index([$columnNames['model_morph_key'], 'model_type'], 'group_has_models_model_id_model_type_index');
+            $table->primary([$groupPivot, $columnNames['model_morph_key'], 'model_type'], 'group_has_models_group_model_type_primary');
+
+            $table->foreign($groupPivot)
+                ->references('id')
+                ->on($tableNames['groups'])
+                ->onDelete('cascade');
         });
 
         app('cache')
@@ -125,10 +179,13 @@ return new class extends Migration
 
         throw_if(empty($tableNames), Exception::class, 'Error: config/permission.php not found and defaults could not be merged. Please publish the package configuration before proceeding, or drop the tables manually.');
 
+        Schema::drop($tableNames['group_has_models']);
+        Schema::drop($tableNames['groups']);
         Schema::drop($tableNames['role_has_permissions']);
         Schema::drop($tableNames['model_has_roles']);
         Schema::drop($tableNames['model_has_permissions']);
         Schema::drop($tableNames['roles']);
         Schema::drop($tableNames['permissions']);
+        Schema::drop($tableNames['projects']);
     }
 };

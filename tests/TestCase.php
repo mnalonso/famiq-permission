@@ -119,6 +119,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('permission.testing', true); // fix sqlite
         $app['config']->set('permission.column_names.model_morph_key', 'model_test_id');
         $app['config']->set('permission.column_names.team_foreign_key', 'team_test_id');
+        $app['config']->set('permission.column_names.group_foreign_key', 'group_test_id');
         $app['config']->set('database.default', 'sqlite');
         $app['config']->set('database.connections.sqlite', [
             'driver' => 'sqlite',

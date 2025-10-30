@@ -66,12 +66,30 @@ class Role extends Model implements RoleContract
      */
     public function permissions(): BelongsToMany
     {
-        return $this->belongsToMany(
+        $relation = $this->belongsToMany(
             config('permission.models.permission'),
             config('permission.table_names.role_has_permissions'),
             app(PermissionRegistrar::class)->pivotRole,
             app(PermissionRegistrar::class)->pivotPermission
         );
+
+        if (! app(PermissionRegistrar::class)->teams) {
+            return $relation;
+        }
+
+        $teamsKey = app(PermissionRegistrar::class)->teamsKey;
+        $relation->withPivot($teamsKey);
+
+        $pivotTable = $relation->getTable();
+        $teamId = getPermissionsTeamId();
+
+        return $relation->where(function ($query) use ($pivotTable, $teamsKey, $teamId) {
+            $query->whereNull("$pivotTable.$teamsKey");
+
+            if (! is_null($teamId)) {
+                $query->orWhere("$pivotTable.$teamsKey", $teamId);
+            }
+        });
     }
 
     /**

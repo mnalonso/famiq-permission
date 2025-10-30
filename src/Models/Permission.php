@@ -43,13 +43,33 @@ class Permission extends Model implements PermissionContract
     {
         $attributes['guard_name'] ??= Guard::getDefaultName(static::class);
 
-        $permission = static::getPermission(['name' => $attributes['name'], 'guard_name' => $attributes['guard_name']]);
+        $params = static::preparePermissionParams($attributes);
+
+        $permission = static::getPermission($params);
 
         if ($permission) {
             throw PermissionAlreadyExists::create($attributes['name'], $attributes['guard_name']);
         }
 
         return static::query()->create($attributes);
+    }
+
+    protected static function preparePermissionParams(array &$attributes): array
+    {
+        $params = ['name' => $attributes['name'], 'guard_name' => $attributes['guard_name']];
+
+        if (app(PermissionRegistrar::class)->teams) {
+            $teamsKey = app(PermissionRegistrar::class)->teamsKey;
+
+            if (array_key_exists($teamsKey, $attributes)) {
+                $params[$teamsKey] = $attributes[$teamsKey];
+            } else {
+                $attributes[$teamsKey] = getPermissionsTeamId();
+                $params[$teamsKey] = $attributes[$teamsKey];
+            }
+        }
+
+        return $params;
     }
 
     /**
@@ -124,10 +144,13 @@ class Permission extends Model implements PermissionContract
     public static function findOrCreate(string $name, ?string $guardName = null): PermissionContract
     {
         $guardName ??= Guard::getDefaultName(static::class);
-        $permission = static::getPermission(['name' => $name, 'guard_name' => $guardName]);
+        $attributes = ['name' => $name, 'guard_name' => $guardName];
+        $params = static::preparePermissionParams($attributes);
+
+        $permission = static::getPermission($params);
 
         if (! $permission) {
-            return static::query()->create(['name' => $name, 'guard_name' => $guardName]);
+            return static::query()->create($attributes);
         }
 
         return $permission;
@@ -150,7 +173,47 @@ class Permission extends Model implements PermissionContract
      */
     protected static function getPermission(array $params = []): ?PermissionContract
     {
-        /** @var PermissionContract|null */
-        return static::getPermissions($params, true)->first();
+        foreach (static::buildTeamQueries($params) as $query) {
+            /** @var PermissionContract|null $permission */
+            $permission = static::getPermissions($query, true)->first();
+
+            if ($permission) {
+                return $permission;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function buildTeamQueries(array $params): array
+    {
+        if (! app(PermissionRegistrar::class)->teams) {
+            return [$params];
+        }
+
+        $teamsKey = app(PermissionRegistrar::class)->teamsKey;
+
+        if (array_key_exists($teamsKey, $params)) {
+            $teamId = $params[$teamsKey];
+
+            if ($teamId === null) {
+                return [$params];
+            }
+
+            return collect([
+                $params,
+                array_merge($params, [$teamsKey => null]),
+            ])->unique(fn ($query) => json_encode($query))->all();
+        }
+
+        $teamId = getPermissionsTeamId();
+
+        $queries = [array_merge($params, [$teamsKey => $teamId])];
+
+        if ($teamId !== null) {
+            $queries[] = array_merge($params, [$teamsKey => null]);
+        }
+
+        return collect($queries)->unique(fn ($query) => json_encode($query))->all();
     }
 }
