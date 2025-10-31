@@ -45,13 +45,13 @@ class Role extends Model implements RoleContract
         $attributes['guard_name'] ??= Guard::getDefaultName(static::class);
 
         $params = ['name' => $attributes['name'], 'guard_name' => $attributes['guard_name']];
-        if (app(PermissionRegistrar::class)->teams) {
-            $teamsKey = app(PermissionRegistrar::class)->teamsKey;
+        if (app(PermissionRegistrar::class)->projects) {
+            $projectsKey = app(PermissionRegistrar::class)->projectsKey;
 
-            if (array_key_exists($teamsKey, $attributes)) {
-                $params[$teamsKey] = $attributes[$teamsKey];
+            if (array_key_exists($projectsKey, $attributes)) {
+                $params[$projectsKey] = $attributes[$projectsKey];
             } else {
-                $attributes[$teamsKey] = getPermissionsTeamId();
+                $attributes[$projectsKey] = getPermissionsProjectId();
             }
         }
         if (static::findByParam($params)) {
@@ -138,7 +138,7 @@ class Role extends Model implements RoleContract
         $role = static::findByParam(['name' => $name, 'guard_name' => $guardName]);
 
         if (! $role) {
-            return static::query()->create(['name' => $name, 'guard_name' => $guardName] + (app(PermissionRegistrar::class)->teams ? [app(PermissionRegistrar::class)->teamsKey => getPermissionsTeamId()] : []));
+            return static::query()->create(['name' => $name, 'guard_name' => $guardName] + (app(PermissionRegistrar::class)->projects ? [app(PermissionRegistrar::class)->projectsKey => getPermissionsProjectId()] : []));
         }
 
         return $role;
@@ -153,13 +153,13 @@ class Role extends Model implements RoleContract
     {
         $query = static::query();
 
-        if (app(PermissionRegistrar::class)->teams) {
-            $teamsKey = app(PermissionRegistrar::class)->teamsKey;
+        if (app(PermissionRegistrar::class)->projects) {
+            $projectsKey = app(PermissionRegistrar::class)->projectsKey;
 
-            $query->where(fn ($q) => $q->whereNull($teamsKey)
-                ->orWhere($teamsKey, $params[$teamsKey] ?? getPermissionsTeamId())
+            $query->where(fn ($q) => $q->whereNull($projectsKey)
+                ->orWhere($projectsKey, $params[$projectsKey] ?? getPermissionsProjectId())
             );
-            unset($params[$teamsKey]);
+            unset($params[$projectsKey]);
         }
 
         foreach ($params as $key => $value) {

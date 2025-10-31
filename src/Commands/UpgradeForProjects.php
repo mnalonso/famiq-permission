@@ -5,25 +5,25 @@ namespace Spatie\Permission\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 
-class UpgradeForTeams extends Command
+class UpgradeForProjects extends Command
 {
-    protected $signature = 'permission:setup-teams';
+    protected $signature = 'permission:setup-projects';
 
-    protected $description = 'Setup the teams feature by generating the associated migration.';
+    protected $description = 'Setup the projects feature by generating the associated migration.';
 
-    protected $migrationSuffix = 'add_teams_fields.php';
+    protected $migrationSuffix = 'add_projects_fields.php';
 
     public function handle()
     {
-        if (! Config::get('permission.teams')) {
-            $this->error('Teams feature is disabled in your permission.php file.');
-            $this->warn('Please enable the teams setting in your configuration.');
+        if (! Config::get('permission.projects')) {
+            $this->error('Projects feature is disabled in your permission.php file.');
+            $this->warn('Please enable the projects setting in your configuration.');
 
             return;
         }
 
         $this->line('');
-        $this->info('The teams feature setup is going to add a migration and a model');
+        $this->info('The projects feature setup is going to add a migration and a model');
 
         $existingMigrations = $this->alreadyExistingMigrations();
 
@@ -83,9 +83,9 @@ class UpgradeForTeams extends Command
     protected function getExistingMigrationsWarning(array $existingMigrations)
     {
         if (count($existingMigrations) > 1) {
-            $base = "Setup teams migrations already exist.\nFollowing files were found: ";
+            $base = "Setup projects migrations already exist.\nFollowing files were found: ";
         } else {
-            $base = "Setup teams migration already exists.\nFollowing file was found: ";
+            $base = "Setup projects migration already exists.\nFollowing file was found: ";
         }
 
         return $base.array_reduce($existingMigrations, fn ($carry, $fileName) => $carry."\n - ".$fileName);

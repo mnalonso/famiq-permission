@@ -20,8 +20,8 @@ class Show extends Command
     {
         $permissionClass = app(PermissionContract::class);
         $roleClass = app(RoleContract::class);
-        $teamsEnabled = config('permission.teams');
-        $team_key = config('permission.column_names.team_foreign_key');
+        $projectsEnabled = config('permission.projects');
+        $project_key = config('permission.column_names.project_foreign_key');
 
         $style = $this->argument('style') ?? 'default';
         $guard = $this->argument('guard');
@@ -37,11 +37,11 @@ class Show extends Command
 
             $roles = $roleClass::whereGuardName($guard)
                 ->with('permissions')
-                ->when($teamsEnabled, fn ($q) => $q->orderBy($team_key))
+                ->when($projectsEnabled, fn ($q) => $q->orderBy($project_key))
                 ->orderBy('name')->get()->mapWithKeys(fn ($role) => [
-                    $role->name.'_'.($teamsEnabled ? ($role->$team_key ?: '') : '') => [
+                    $role->name.'_'.($projectsEnabled ? ($role->$project_key ?: '') : '') => [
                         'permissions' => $role->permissions->pluck($permissionClass->getKeyName()),
-                        $team_key => $teamsEnabled ? $role->$team_key : null,
+                        $project_key => $projectsEnabled ? $role->$project_key : null,
                     ],
                 ]);
 
@@ -52,15 +52,15 @@ class Show extends Command
             )->prepend($permission)
             );
 
-            if ($teamsEnabled) {
-                $teams = $roles->groupBy($team_key)->values()->map(
-                    fn ($group, $id) => new TableCell('Team ID: '.($id ?: 'NULL'), ['colspan' => $group->count()])
+            if ($projectsEnabled) {
+                $projects = $roles->groupBy($project_key)->values()->map(
+                    fn ($group, $id) => new TableCell('Project ID: '.($id ?: 'NULL'), ['colspan' => $group->count()])
                 );
             }
 
             $this->table(
                 array_merge(
-                    isset($teams) ? $teams->prepend(new TableCell(''))->toArray() : [],
+                    isset($projects) ? $projects->prepend(new TableCell(''))->toArray() : [],
                     $roles->keys()->map(function ($val) {
                         $name = explode('_', $val);
                         array_pop($name);

@@ -10,8 +10,9 @@ use Illuminate\Contracts\Cache\Store;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Contracts\Permission;
-use Spatie\Permission\Contracts\PermissionsTeamResolver;
+use Spatie\Permission\Contracts\PermissionsProjectResolver;
 use Spatie\Permission\Contracts\Role;
+use Spatie\Permission\DefaultProjectResolver;
 
 class PermissionRegistrar
 {
@@ -33,11 +34,11 @@ class PermissionRegistrar
     /** @var \DateInterval|int */
     public $cacheExpirationTime;
 
-    public bool $teams;
+    public bool $projects;
 
-    protected PermissionsTeamResolver $teamResolver;
+    protected PermissionsProjectResolver $projectResolver;
 
-    public string $teamsKey;
+    public string $projectsKey;
 
     public string $cacheKey;
 
@@ -58,7 +59,7 @@ class PermissionRegistrar
     {
         $this->permissionClass = config('permission.models.permission');
         $this->roleClass = config('permission.models.role');
-        $this->teamResolver = new (config('permission.team_resolver', DefaultTeamResolver::class));
+        $this->projectResolver = new (config('permission.project_resolver', DefaultProjectResolver::class));
 
         $this->cacheManager = $cacheManager;
         $this->initializeCache();
@@ -68,8 +69,8 @@ class PermissionRegistrar
     {
         $this->cacheExpirationTime = config('permission.cache.expiration_time') ?: \DateInterval::createFromDateString('24 hours');
 
-        $this->teams = config('permission.teams', false);
-        $this->teamsKey = config('permission.column_names.team_foreign_key', 'team_id');
+        $this->projects = config('permission.projects', false);
+        $this->projectsKey = config('permission.column_names.project_foreign_key', 'project_id');
 
         $this->cacheKey = config('permission.cache.key');
 
@@ -99,21 +100,21 @@ class PermissionRegistrar
     }
 
     /**
-     * Set the team id for teams/groups support, this id is used when querying permissions/roles
+     * Set the project id for projects/groups support, this id is used when querying permissions/roles
      *
      * @param  int|string|\Illuminate\Database\Eloquent\Model|null  $id
      */
-    public function setPermissionsTeamId($id): void
+    public function setPermissionsProjectId($id): void
     {
-        $this->teamResolver->setPermissionsTeamId($id);
+        $this->projectResolver->setPermissionsProjectId($id);
     }
 
     /**
      * @return int|string|null
      */
-    public function getPermissionsTeamId()
+    public function getPermissionsProjectId()
     {
-        return $this->teamResolver->getPermissionsTeamId();
+        return $this->projectResolver->getPermissionsProjectId();
     }
 
     /**

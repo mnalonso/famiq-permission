@@ -122,12 +122,12 @@ class PermissionRegistrarTest extends TestCase
 
     /** @test */
     #[Test]
-    public function it_can_change_team_id()
+    public function it_can_change_project_id()
     {
-        $team_id = '00000000-0000-0000-0000-000000000000';
+        $project_id = '00000000-0000-0000-0000-000000000000';
 
-        app(PermissionRegistrar::class)->setPermissionsTeamId($team_id);
+        app(PermissionRegistrar::class)->setPermissionsProjectId($project_id);
 
-        $this->assertSame($team_id, app(PermissionRegistrar::class)->getPermissionsTeamId());
+        $this->assertSame($project_id, app(PermissionRegistrar::class)->getPermissionsProjectId());
     }
 }

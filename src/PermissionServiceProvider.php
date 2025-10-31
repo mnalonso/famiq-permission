@@ -88,7 +88,7 @@ class PermissionServiceProvider extends ServiceProvider
             Commands\CreateRole::class,
             Commands\CreatePermission::class,
             Commands\Show::class,
-            Commands\UpgradeForTeams::class,
+            Commands\UpgradeForProjects::class,
             Commands\AssignRole::class,
         ]);
     }
@@ -103,7 +103,7 @@ class PermissionServiceProvider extends ServiceProvider
         // @phpstan-ignore-next-line
         $dispatcher->listen(function (\Laravel\Octane\Contracts\OperationTerminated $event) {
             // @phpstan-ignore-next-line
-            $event->sandbox->make(PermissionRegistrar::class)->setPermissionsTeamId(null);
+            $event->sandbox->make(PermissionRegistrar::class)->setPermissionsProjectId(null);
         });
 
         if (! $this->app['config']->get('permission.register_octane_reset_listener')) {
@@ -189,7 +189,7 @@ class PermissionServiceProvider extends ServiceProvider
 
         // array format: 'Display Text' => 'boolean-config-key name'
         $features = [
-            'Teams' => 'teams',
+            'Projects' => 'projects',
             'Wildcard-Permissions' => 'enable_wildcard_permission',
             'Octane-Listener' => 'register_octane_reset_listener',
             'Passport' => 'use_passport_client_credentials',
