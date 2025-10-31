@@ -38,7 +38,8 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Spatie\\Permission\\": "src"
+            "Spatie\\Permission\\": "src",
+            "Database\\Seeders\\": "database/seeders/"
         },
         "files": [
             "src/helpers.php"
