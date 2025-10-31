@@ -93,8 +93,15 @@ trait HasPermissions
 
         $projectsKey = app(PermissionRegistrar::class)->projectsKey;
         $relation->withPivot($projectsKey);
+        $projectId = getPermissionsProjectId();
 
-        return $relation->wherePivot($projectsKey, getPermissionsProjectId());
+        if (is_null($projectId)) {
+            return $relation->wherePivotNull($projectsKey);
+        }
+
+        return $relation
+            ->wherePivot($projectsKey, '=', $projectId)
+            ->orWherePivotNull($projectsKey);
     }
 
     /**

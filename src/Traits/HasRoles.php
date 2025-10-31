@@ -65,13 +65,13 @@ trait HasRoles
         $relation->withPivot($projectsKey);
         $projectId = getPermissionsProjectId();
 
-        return $relation->where(function ($query) use ($projectsKey, $projectId) {
-            $query->wherePivot($projectsKey, $projectId);
+        if (is_null($projectId)) {
+            return $relation->wherePivotNull($projectsKey);
+        }
 
-            if (! is_null($projectId)) {
-                $query->orWherePivot($projectsKey, null);
-            }
-        });
+        return $relation
+            ->wherePivot($projectsKey, '=', $projectId)
+            ->orWherePivotNull($projectsKey);
     }
 
     /**
