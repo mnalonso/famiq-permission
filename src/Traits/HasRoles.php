@@ -63,15 +63,18 @@ trait HasRoles
 
         $projectsKey = app(PermissionRegistrar::class)->projectsKey;
         $relation->withPivot($projectsKey);
+
         $projectId = getPermissionsProjectId();
 
         if (is_null($projectId)) {
-            return $relation->wherePivotNull($projectsKey);
+            return $relation;
         }
 
-        return $relation
-            ->wherePivot($projectsKey, '=', $projectId)
-            ->orWherePivotNull($projectsKey);
+        $column = $relation->getTable().'.'.$projectsKey;
+
+        return $relation->where(function ($query) use ($column, $projectId) {
+            $query->whereNull($column)->orWhere($column, $projectId);
+        });
     }
 
     /**
@@ -103,9 +106,17 @@ trait HasRoles
 
         $key = (new ($this->getRoleClass())())->getKeyName();
 
-        return $query->{! $without ? 'whereHas' : 'whereDoesntHave'}('roles', fn (Builder $subQuery) => $subQuery
-            ->whereIn(config('permission.table_names.roles').".$key", \array_column($roles, $key))
-        );
+        return $query->{! $without ? 'whereHas' : 'whereDoesntHave'}('roles', function (Builder $subQuery) use ($roles, $key) {
+            $subQuery->whereIn(
+                config('permission.table_names.roles').".$key",
+                \array_column($roles, $key)
+            );
+
+            $this->applyProjectConstraintToPivotQuery(
+                $subQuery,
+                config('permission.table_names.model_has_roles')
+            );
+        });
     }
 
     /**
@@ -158,13 +169,13 @@ trait HasRoles
         $projectPivot = app(PermissionRegistrar::class)->projects && ! is_a($this, Permission::class) ?
             [app(PermissionRegistrar::class)->projectsKey => getPermissionsProjectId()] : [];
 
-        if ($model->exists) {
-            if (app(PermissionRegistrar::class)->projects) {
-                // explicit reload in case project has been changed since last load
-                $this->load('roles');
-            }
+        $projectKey = app(PermissionRegistrar::class)->projectsKey;
+        $projectId = app(PermissionRegistrar::class)->projects
+            ? ($projectPivot[$projectKey] ?? getPermissionsProjectId())
+            : null;
 
-            $currentRoles = $this->roles->map(fn ($role) => $role->getKey())->toArray();
+        if ($model->exists) {
+            $currentRoles = $this->getProjectRoles($projectId)->map(fn ($role) => $role->getKey())->toArray();
 
             $this->roles()->attach(array_diff($roles, $currentRoles), $projectPivot);
             $model->unsetRelation('roles');
@@ -205,7 +216,7 @@ trait HasRoles
     {
         $roles = $this->collectRoles($role);
 
-        $this->roles()->detach($roles);
+        $this->rolesRelationForProject()->detach($roles);
 
         $this->unsetRelation('roles');
 
@@ -231,12 +242,12 @@ trait HasRoles
         if ($this->getModel()->exists) {
             $this->collectRoles($roles);
             if (config('permission.events_enabled')) {
-                $currentRoles = $this->roles()->get();
+                $currentRoles = $this->rolesRelationForProject()->get();
                 if ($currentRoles->isNotEmpty()) {
                     $this->removeRole($currentRoles);
                 }
             } else {
-                $this->roles()->detach();
+                $this->rolesRelationForProject()->detach();
                 $this->setRelation('roles', collect());
             }
         }
@@ -251,7 +262,7 @@ trait HasRoles
      */
     public function hasRole($roles, ?string $guard = null): bool
     {
-        $this->loadMissing('roles');
+        $rolesCollection = $this->getProjectRoles();
 
         if (is_string($roles) && strpos($roles, '|') !== false) {
             $roles = $this->convertPipeToArray($roles);
@@ -260,7 +271,7 @@ trait HasRoles
         if ($roles instanceof \BackedEnum) {
             $roles = $roles->value;
 
-            return $this->roles
+            return $rolesCollection
                 ->when($guard, fn ($q) => $q->where('guard_name', $guard))
                 ->pluck('name')
                 ->contains(function ($name) use ($roles) {
@@ -277,18 +288,18 @@ trait HasRoles
             $key = (new ($this->getRoleClass())())->getKeyName();
 
             return $guard
-                ? $this->roles->where('guard_name', $guard)->contains($key, $roles)
-                : $this->roles->contains($key, $roles);
+                ? $rolesCollection->where('guard_name', $guard)->contains($key, $roles)
+                : $rolesCollection->contains($key, $roles);
         }
 
         if (is_string($roles)) {
             return $guard
-                ? $this->roles->where('guard_name', $guard)->contains('name', $roles)
-                : $this->roles->contains('name', $roles);
+                ? $rolesCollection->where('guard_name', $guard)->contains('name', $roles)
+                : $rolesCollection->contains('name', $roles);
         }
 
         if ($roles instanceof Role) {
-            return $this->roles->contains($roles->getKeyName(), $roles->getKey());
+            return $rolesCollection->contains($roles->getKeyName(), $roles->getKey());
         }
 
         if (is_array($roles)) {
@@ -302,7 +313,7 @@ trait HasRoles
         }
 
         if ($roles instanceof Collection) {
-            return $roles->intersect($guard ? $this->roles->where('guard_name', $guard) : $this->roles)->isNotEmpty();
+            return $roles->intersect($guard ? $rolesCollection->where('guard_name', $guard) : $rolesCollection)->isNotEmpty();
         }
 
         throw new \TypeError('Unsupported type for $roles parameter to hasRole().');
@@ -327,7 +338,7 @@ trait HasRoles
      */
     public function hasAllRoles($roles, ?string $guard = null): bool
     {
-        $this->loadMissing('roles');
+        $rolesCollection = $this->getProjectRoles();
 
         if ($roles instanceof \BackedEnum) {
             $roles = $roles->value;
@@ -342,7 +353,7 @@ trait HasRoles
         }
 
         if ($roles instanceof Role) {
-            return $this->roles->contains($roles->getKeyName(), $roles->getKey());
+            return $rolesCollection->contains($roles->getKeyName(), $roles->getKey());
         }
 
         $roles = collect()->make($roles)->map(function ($role) {
@@ -354,7 +365,7 @@ trait HasRoles
         });
 
         $roleNames = $guard
-            ? $this->roles->where('guard_name', $guard)->pluck('name')
+            ? $rolesCollection->where('guard_name', $guard)->pluck('name')
             : $this->getRoleNames();
 
         $roleNames = $roleNames->transform(function ($roleName) {
@@ -375,7 +386,7 @@ trait HasRoles
      */
     public function hasExactRoles($roles, ?string $guard = null): bool
     {
-        $this->loadMissing('roles');
+        $rolesCollection = $this->getProjectRoles();
 
         if (is_string($roles) && strpos($roles, '|') !== false) {
             $roles = $this->convertPipeToArray($roles);
@@ -392,7 +403,7 @@ trait HasRoles
         $roles = collect()->make($roles)->map(fn ($role) => $role instanceof Role ? $role->name : $role
         );
 
-        return $this->roles->count() == $roles->count() && $this->hasAllRoles($roles, $guard);
+        return $rolesCollection->count() == $roles->count() && $this->hasAllRoles($roles, $guard);
     }
 
     /**
@@ -400,14 +411,12 @@ trait HasRoles
      */
     public function getDirectPermissions(): Collection
     {
-        return $this->permissions;
+        return $this->getProjectPermissions();
     }
 
     public function getRoleNames(): Collection
     {
-        $this->loadMissing('roles');
-
-        return $this->roles->pluck('name');
+        return $this->getProjectRoles()->pluck('name');
     }
 
     protected function getStoredRole($role): Role
@@ -425,6 +434,39 @@ trait HasRoles
         }
 
         return $role;
+    }
+
+    protected function getProjectRoles(int|string|null $projectId = null): Collection
+    {
+        $this->loadMissing('roles');
+
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $this->roles;
+        }
+
+        $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+
+        return $this->filterCollectionByProject(
+            $this->roles,
+            fn ($role) => $role->pivot?->{$projectsKey} ?? null,
+            true,
+            $projectId
+        );
+    }
+
+    protected function rolesRelationForProject(int|string|null $projectId = null, bool $includeGlobal = true): BelongsToMany
+    {
+        $relation = $this->roles();
+
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $relation;
+        }
+
+        if ($relation->getTable() !== config('permission.table_names.model_has_roles')) {
+            return $relation;
+        }
+
+        return $this->applyProjectConstraintToRelation($relation, $includeGlobal, $projectId);
     }
 
     protected function convertPipeToArray(string $pipeString)

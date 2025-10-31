@@ -28,6 +28,25 @@ class ProjectHasPermissionsTest extends HasPermissionsTest
 
     /** @test */
     #[Test]
+    public function it_returns_all_direct_permissions_when_no_project_is_selected()
+    {
+        setPermissionsProjectId(1);
+        $this->testUser->givePermissionTo('edit-articles');
+
+        setPermissionsProjectId(2);
+        $this->testUser->givePermissionTo('edit-blog');
+
+        setPermissionsProjectId(null);
+        $this->testUser->load('permissions');
+
+        $this->assertEquals(
+            collect(['edit-articles', 'edit-blog'])->sort()->values(),
+            $this->testUser->permissions->pluck('name')->sort()->values()
+        );
+    }
+
+    /** @test */
+    #[Test]
     public function it_can_assign_same_and_different_permission_on_same_user_on_different_projects()
     {
         setPermissionsProjectId(1);

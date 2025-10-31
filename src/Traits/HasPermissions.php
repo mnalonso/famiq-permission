@@ -93,15 +93,14 @@ trait HasPermissions
 
         $projectsKey = app(PermissionRegistrar::class)->projectsKey;
         $relation->withPivot($projectsKey);
+
         $projectId = getPermissionsProjectId();
 
         if (is_null($projectId)) {
-            return $relation->wherePivotNull($projectsKey);
+            return $relation;
         }
 
-        return $relation
-            ->wherePivot($projectsKey, '=', $projectId)
-            ->orWherePivotNull($projectsKey);
+        return $this->applyProjectConstraintToRelation($relation, true, $projectId);
     }
 
     /**
@@ -122,13 +121,29 @@ trait HasPermissions
         );
 
         return $query->where(fn (Builder $query) => $query
-            ->{! $without ? 'whereHas' : 'whereDoesntHave'}('permissions', fn (Builder $subQuery) => $subQuery
-            ->whereIn(config('permission.table_names.permissions').".$permissionKey", \array_column($permissions, $permissionKey))
-            )
+            ->{! $without ? 'whereHas' : 'whereDoesntHave'}('permissions', function (Builder $subQuery) use ($permissions, $permissionKey) {
+                $subQuery->whereIn(
+                    config('permission.table_names.permissions').".$permissionKey",
+                    \array_column($permissions, $permissionKey)
+                );
+
+                $this->applyProjectConstraintToPivotQuery(
+                    $subQuery,
+                    config('permission.table_names.model_has_permissions')
+                );
+            })
             ->when(count($rolesWithPermissions), fn ($whenQuery) => $whenQuery
-                ->{! $without ? 'orWhereHas' : 'whereDoesntHave'}('roles', fn (Builder $subQuery) => $subQuery
-                ->whereIn(config('permission.table_names.roles').".$roleKey", \array_column($rolesWithPermissions, $roleKey))
-                )
+                ->{! $without ? 'orWhereHas' : 'whereDoesntHave'}('roles', function (Builder $subQuery) use ($rolesWithPermissions, $roleKey) {
+                    $subQuery->whereIn(
+                        config('permission.table_names.roles').".$roleKey",
+                        \array_column($rolesWithPermissions, $roleKey)
+                    );
+
+                    $this->applyProjectConstraintToPivotQuery(
+                        $subQuery,
+                        config('permission.table_names.model_has_roles')
+                    );
+                })
             )
         );
     }
@@ -332,7 +347,7 @@ trait HasPermissions
     {
         $permission = $this->filterPermission($permission);
 
-        return $this->loadMissing('permissions')->permissions
+        return $this->getProjectPermissions()
             ->contains($permission->getKeyName(), $permission->getKey());
     }
 
@@ -345,22 +360,26 @@ trait HasPermissions
             return collect();
         }
 
-        return $this->loadMissing('roles', 'roles.permissions')
-            ->roles->flatMap(function ($role) {
-                if (! app(PermissionRegistrar::class)->projects) {
-                    return $role->permissions;
-                }
+        $roles = $this->loadMissing('roles', 'roles.permissions')->roles;
 
-                $projectId = getPermissionsProjectId();
-                $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+        if (app(PermissionRegistrar::class)->projects && method_exists($this, 'getProjectRoles')) {
+            $roles = $this->getProjectRoles();
+        }
 
-                return $role->permissions->filter(function ($permission) use ($projectsKey, $projectId) {
-                    $permissionProject = $permission->getAttribute($projectsKey);
+        return $roles->flatMap(function ($role) {
+            if (! app(PermissionRegistrar::class)->projects) {
+                return $role->permissions;
+            }
 
-                    return is_null($permissionProject) || $permissionProject === $projectId;
-                });
-            })
-            ->sort()->values();
+            $projectId = getPermissionsProjectId();
+            $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+
+            return $role->permissions->filter(function ($permission) use ($projectsKey, $projectId) {
+                $permissionProject = $permission->getAttribute($projectsKey);
+
+                return is_null($permissionProject) || $permissionProject === $projectId;
+            });
+        })->sort()->values();
     }
 
     /**
@@ -369,7 +388,7 @@ trait HasPermissions
     public function getAllPermissions(): Collection
     {
         /** @var Collection $permissions */
-        $permissions = $this->permissions;
+        $permissions = $this->getProjectPermissions();
 
         if (! is_a($this, Permission::class)) {
             $permissions = $permissions->merge($this->getPermissionsViaRoles());
@@ -417,11 +436,15 @@ trait HasPermissions
         $permissions = $this->collectPermissions($permissions);
 
         $model = $this->getModel();
-        $projectPivot = app(PermissionRegistrar::class)->projects && ! is_a($this, Role::class) ?
-            [app(PermissionRegistrar::class)->projectsKey => getPermissionsProjectId()] : [];
+        $registrar = app(PermissionRegistrar::class);
+        $projectKey = $registrar->projectsKey;
+        $projectPivot = $registrar->projects && ! is_a($this, Role::class)
+            ? [$projectKey => getPermissionsProjectId()]
+            : [];
+        $projectId = $registrar->projects ? ($projectPivot[$projectKey] ?? getPermissionsProjectId()) : null;
 
         if ($model->exists) {
-            $currentPermissions = $this->permissions->map(fn ($permission) => $permission->getKey())->toArray();
+            $currentPermissions = $this->getProjectPermissions($projectId)->map(fn ($permission) => $permission->getKey())->toArray();
 
             $this->permissions()->attach(array_diff($permissions, $currentPermissions), $projectPivot);
             $model->unsetRelation('permissions');
@@ -471,7 +494,7 @@ trait HasPermissions
     {
         if ($this->getModel()->exists) {
             $this->collectPermissions($permissions);
-            $this->permissions()->detach();
+            $this->permissionsRelationForProject()->detach();
             $this->setRelation('permissions', collect());
         }
 
@@ -488,7 +511,7 @@ trait HasPermissions
     {
         $storedPermission = $this->getStoredPermission($permission);
 
-        $this->permissions()->detach($storedPermission);
+        $this->permissionsRelationForProject()->detach($storedPermission);
 
         if (is_a($this, Role::class)) {
             $this->forgetCachedPermissions();
@@ -507,7 +530,7 @@ trait HasPermissions
 
     public function getPermissionNames(): Collection
     {
-        return $this->permissions->pluck('name');
+        return $this->getProjectPermissions()->pluck('name');
     }
 
     /**
@@ -609,5 +632,109 @@ trait HasPermissions
         }
 
         return false;
+    }
+
+    protected function getProjectPermissions(int|string|null $projectId = null): Collection
+    {
+        $this->loadMissing('permissions');
+
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $this->permissions;
+        }
+
+        $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+
+        return $this->filterCollectionByProject(
+            $this->permissions,
+            fn ($permission) => $permission->pivot?->{$projectsKey} ?? null,
+            true,
+            $projectId
+        );
+    }
+
+    protected function permissionsRelationForProject(int|string|null $projectId = null, bool $includeGlobal = true): BelongsToMany
+    {
+        $relation = $this->permissions();
+
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $relation;
+        }
+
+        if ($relation->getTable() !== config('permission.table_names.model_has_permissions')) {
+            return $relation;
+        }
+
+        return $this->applyProjectConstraintToRelation($relation, $includeGlobal, $projectId);
+    }
+
+    protected function filterCollectionByProject(Collection $collection, callable $resolver, bool $includeGlobal = true, int|string|null $projectId = null): Collection
+    {
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $collection->values();
+        }
+
+        $projectId ??= getPermissionsProjectId();
+
+        return $collection->filter(function ($item) use ($resolver, $includeGlobal, $projectId) {
+            $value = $resolver($item);
+
+            if (is_null($value)) {
+                return $includeGlobal;
+            }
+
+            if (is_null($projectId)) {
+                return false;
+            }
+
+            return (string) $value === (string) $projectId;
+        })->values();
+    }
+
+    protected function applyProjectConstraintToRelation(BelongsToMany $relation, bool $includeGlobal = true, int|string|null $projectId = null): BelongsToMany
+    {
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $relation;
+        }
+
+        $projectId ??= getPermissionsProjectId();
+        $column = $relation->getTable().'.'.app(PermissionRegistrar::class)->projectsKey;
+
+        if (is_null($projectId)) {
+            return $relation->whereNull($column);
+        }
+
+        if ($includeGlobal) {
+            return $relation->where(function ($query) use ($column, $projectId) {
+                $query->whereNull($column)->orWhere($column, $projectId);
+            });
+        }
+
+        return $relation->where($column, $projectId);
+    }
+
+    protected function applyProjectConstraintToPivotQuery(Builder $query, string $table, bool $includeGlobal = true, int|string|null $projectId = null): Builder
+    {
+        if (! app(PermissionRegistrar::class)->projects) {
+            return $query;
+        }
+
+        $projectId ??= getPermissionsProjectId();
+        $column = $table.'.'.app(PermissionRegistrar::class)->projectsKey;
+
+        return $query->where(function ($nested) use ($column, $projectId, $includeGlobal) {
+            if (is_null($projectId)) {
+                $nested->whereNull($column);
+
+                return;
+            }
+
+            if ($includeGlobal) {
+                $nested->whereNull($column)->orWhere($column, $projectId);
+
+                return;
+            }
+
+            $nested->where($column, $projectId);
+        });
     }
 }

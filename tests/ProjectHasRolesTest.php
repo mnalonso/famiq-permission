@@ -29,6 +29,25 @@ class ProjectHasRolesTest extends HasRolesTest
 
     /** @test */
     #[Test]
+    public function it_returns_all_roles_when_no_project_is_selected()
+    {
+        setPermissionsProjectId(1);
+        $this->testUser->assignRole('testRole');
+
+        setPermissionsProjectId(2);
+        $this->testUser->assignRole('testRole2');
+
+        setPermissionsProjectId(null);
+        $this->testUser->load('roles');
+
+        $this->assertEquals(
+            collect(['testRole', 'testRole2'])->sort()->values(),
+            $this->testUser->roles->pluck('name')->sort()->values()
+        );
+    }
+
+    /** @test */
+    #[Test]
     public function it_deletes_pivot_table_entries_when_deleting_models()
     {
         $user1 = User::create(['email' => 'user2@test.com']);
