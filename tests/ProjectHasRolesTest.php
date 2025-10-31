@@ -42,15 +42,14 @@ class ProjectHasRolesTest extends HasRolesTest
     #[Test]
     public function it_can_assign_same_and_different_roles_on_same_user_different_projects()
     {
-        app(Role::class)->create(['name' => 'testRole3']); // project_test_id = 1 by main class
-        app(Role::class)->create(['name' => 'testRole3', 'project_test_id' => 2]);
-        app(Role::class)->create(['name' => 'testRole4', 'project_test_id' => null]); // global role
+        app(Role::class)->findOrCreate('testRole3');
+        app(Role::class)->findOrCreate('testRole4'); // global role
 
-        $testRole3Project1 = app(Role::class)->where(['name' => 'testRole3', 'project_test_id' => 1])->first();
-        $testRole3Project2 = app(Role::class)->where(['name' => 'testRole3', 'project_test_id' => 2])->first();
-        $testRole4NoProject = app(Role::class)->where(['name' => 'testRole4', 'project_test_id' => null])->first();
-        $this->assertNotNull($testRole3Project1);
-        $this->assertNotNull($testRole4NoProject);
+        $testRole3 = app(Role::class)->where('name', 'testRole3')->first();
+        $testRole4 = app(Role::class)->where('name', 'testRole4')->first();
+        $this->assertNotNull($testRole3);
+        $this->assertNotNull($testRole4);
+        $this->assertEquals(1, app(Role::class)->where('name', 'testRole3')->count());
 
         setPermissionsProjectId(1);
         $this->testUser->assignRole('testRole', 'testRole2');
@@ -74,8 +73,8 @@ class ProjectHasRolesTest extends HasRolesTest
 
         $this->testUser->assignRole('testRole3', 'testRole4');
         $this->assertTrue($this->testUser->hasExactRoles(['testRole', 'testRole2', 'testRole3', 'testRole4']));
-        $this->assertTrue($this->testUser->hasRole($testRole3Project1)); // testRole3 project=1
-        $this->assertTrue($this->testUser->hasRole($testRole4NoProject)); // global role project=null
+        $this->assertTrue($this->testUser->hasRole($testRole3));
+        $this->assertTrue($this->testUser->hasRole($testRole4));
 
         setPermissionsProjectId(2);
         $this->testUser->load('roles');
@@ -85,17 +84,17 @@ class ProjectHasRolesTest extends HasRolesTest
             $this->testUser->getRoleNames()->sort()->values()
         );
         $this->assertTrue($this->testUser->hasExactRoles(['testRole', 'testRole3']));
-        $this->assertTrue($this->testUser->hasRole($testRole3Project2)); // testRole3 project=2
+        $this->assertTrue($this->testUser->hasRole($testRole3));
         $this->testUser->assignRole('testRole4');
         $this->assertTrue($this->testUser->hasExactRoles(['testRole', 'testRole3', 'testRole4']));
-        $this->assertTrue($this->testUser->hasRole($testRole4NoProject)); // global role project=null
+        $this->assertTrue($this->testUser->hasRole($testRole4));
     }
 
     /** @test */
     #[Test]
     public function it_can_sync_or_remove_roles_without_detach_on_different_projects()
     {
-        app(Role::class)->create(['name' => 'testRole3', 'project_test_id' => 2]);
+        app(Role::class)->findOrCreate('testRole3');
 
         setPermissionsProjectId(1);
         $this->testUser->syncRoles('testRole', 'testRole2');

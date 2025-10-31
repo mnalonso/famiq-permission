@@ -47,15 +47,19 @@ class ProjectRolesPermissionsSeederTest extends TestCase
             foreach ($definition['roles'] as $roleName => $permissionNames) {
                 $role = Role::query()
                     ->where('name', $roleName)
-                    ->where($projectKey, $projectId)
                     ->where('guard_name', 'web')
                     ->first();
 
-                $this->assertNotNull($role, sprintf('Role %s for project %s was not seeded', $roleName, $definition['label']));
+                $this->assertNotNull($role, sprintf('Role %s was not seeded', $roleName));
+
+                $filteredPermissions = $role->permissions
+                    ->where($projectKey, $projectId)
+                    ->pluck('name')
+                    ->all();
 
                 $this->assertEqualsCanonicalizing(
                     $permissionNames,
-                    $role->permissions->pluck('name')->all(),
+                    $filteredPermissions,
                     sprintf('Unexpected permissions for role %s in %s', $roleName, $definition['label'])
                 );
             }
@@ -74,36 +78,25 @@ class ProjectRolesPermissionsSeederTest extends TestCase
         $projectBDef = ProjectRolesPermissionsSeeder::PROJECT_DEFINITIONS['B'];
         $projectDDef = ProjectRolesPermissionsSeeder::PROJECT_DEFINITIONS['D'];
 
-        $gestorA = Role::query()
-            ->where('name', 'Gestor')
-            ->where($projectKey, $projectADef['id'])
-            ->firstOrFail();
+        $gestor = Role::query()->where('name', 'Gestor')->firstOrFail();
 
         \setPermissionsProjectId($projectADef['id']);
-        $user->assignRole($gestorA);
+        $user->assignRole($gestor);
 
         $this->assertTrue($user->hasPermissionTo('leer listas Proyecto A'));
         $this->assertTrue($user->hasPermissionTo('exportar tableros Proyecto A'));
         $this->assertFalse($user->hasPermissionTo('escribir listas Proyecto B'));
 
-        $colaboradorB = Role::query()
-            ->where('name', 'Colaborador')
-            ->where($projectKey, $projectBDef['id'])
-            ->firstOrFail();
+        $colaborador = Role::query()->where('name', 'Colaborador')->firstOrFail();
 
         \setPermissionsProjectId($projectBDef['id']);
-        $user->assignRole($colaboradorB);
+        $user->assignRole($colaborador);
 
         $this->assertTrue($user->hasPermissionTo('escribir listas Proyecto B'));
         $this->assertFalse($user->hasPermissionTo('gestionar presupuesto Proyecto D'));
 
-        $colaboradorD = Role::query()
-            ->where('name', 'Colaborador')
-            ->where($projectKey, $projectDDef['id'])
-            ->firstOrFail();
-
         \setPermissionsProjectId($projectDDef['id']);
-        $user->assignRole($colaboradorD);
+        $user->assignRole($colaborador);
 
         $this->assertTrue($user->hasPermissionTo('ver métricas Proyecto D'));
         $this->assertFalse($user->hasPermissionTo('gestionar presupuesto Proyecto D'));

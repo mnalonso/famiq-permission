@@ -163,10 +163,10 @@ class CommandTest extends TestCase
         $AddProjectsFields->up();
         $AddProjectsFields->up(); // test upgrade projects migration fresh
 
-        Role::create(['name' => 'new-role', 'project_test_id' => 1]);
-        $role = Role::where('name', 'new-role')->first();
-        $this->assertNotNull($role);
-        $this->assertSame(1, (int) $role->project_test_id);
+        Permission::create(['name' => 'new-permission', 'guard_name' => 'web', 'project_test_id' => 1]);
+        $permission = Permission::where('name', 'new-permission')->first();
+        $this->assertNotNull($permission);
+        $this->assertSame(1, (int) $permission->project_test_id);
 
         // remove migration
         foreach ($matchingFiles as $file) {
@@ -182,21 +182,30 @@ class CommandTest extends TestCase
         app(\Spatie\Permission\PermissionRegistrar::class)->initializeCache();
 
         Role::where('name', 'testRole2')->delete();
-        Role::create(['name' => 'testRole_2']);
-        Role::create(['name' => 'testRole_Project', 'project_test_id' => 1]);
-        Role::create(['name' => 'testRole_Project', 'project_test_id' => 2]); // same name different project
+        Role::findOrCreate('testRole_2');
+
+        setPermissionsProjectId(1);
+        $projectOneRole = Role::findOrCreate('testRole_Project');
+        $projectOneRole->syncPermissions('project-one-permission');
+
+        setPermissionsProjectId(2);
+        $projectTwoRole = Role::findOrCreate('testRole_Project');
+        $projectTwoRole->givePermissionTo('project-two-permission');
+
+        setPermissionsProjectId(null);
         Artisan::call('permission:show');
 
         $output = Artisan::output();
 
-        // |    | Project ID: NULL         | Project ID: 1    | Project ID: 2    |
-        // |    | testRole | testRole_2 | testRole_Project | testRole_Project |
+        $patternProjects = '/\|\s+\|\s+Project ID: NULL\s+\|\s+Project ID: 1\s+\|\s+Project ID: 2\s+\|/';
+        $patternRoles = '/\|\s+\|\s+testRole\s+\|\s+testRole_2 \(Project: global\)\s+\|\s+testRole_Project \(Project: 1\)\s+\|\s+testRole_Project \(Project: 2\)\s+\|/';
+
         if (method_exists($this, 'assertMatchesRegularExpression')) {
-            $this->assertMatchesRegularExpression('/\|\s+\|\s+Project ID: NULL\s+\|\s+Project ID: 1\s+\|\s+Project ID: 2\s+\|/', $output);
-            $this->assertMatchesRegularExpression('/\|\s+\|\s+testRole\s+\|\s+testRole_2\s+\|\s+testRole_Project\s+\|\s+testRole_Project\s+\|/', $output);
+            $this->assertMatchesRegularExpression($patternProjects, $output);
+            $this->assertMatchesRegularExpression($patternRoles, $output);
         } else { // phpUnit 9/8
-            $this->assertRegExp('/\|\s+\|\s+Project ID: NULL\s+\|\s+Project ID: 1\s+\|\s+Project ID: 2\s+\|/', $output);
-            $this->assertRegExp('/\|\s+\|\s+testRole\s+\|\s+testRole_2\s+\|\s+testRole_Project\s+\|\s+testRole_Project\s+\|/', $output);
+            $this->assertRegExp($patternProjects, $output);
+            $this->assertRegExp($patternRoles, $output);
         }
     }
 

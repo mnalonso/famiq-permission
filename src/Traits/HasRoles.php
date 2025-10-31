@@ -63,10 +63,15 @@ trait HasRoles
 
         $projectsKey = app(PermissionRegistrar::class)->projectsKey;
         $relation->withPivot($projectsKey);
-        $projectField = config('permission.table_names.roles').'.'.$projectsKey;
+        $projectId = getPermissionsProjectId();
 
-        return $relation->wherePivot($projectsKey, getPermissionsProjectId())
-            ->where(fn ($q) => $q->whereNull($projectField)->orWhere($projectField, getPermissionsProjectId()));
+        return $relation->where(function ($query) use ($projectsKey, $projectId) {
+            $query->wherePivot($projectsKey, $projectId);
+
+            if (! is_null($projectId)) {
+                $query->orWherePivot($projectsKey, null);
+            }
+        });
     }
 
     /**

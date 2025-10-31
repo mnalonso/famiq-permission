@@ -339,7 +339,20 @@ trait HasPermissions
         }
 
         return $this->loadMissing('roles', 'roles.permissions')
-            ->roles->flatMap(fn ($role) => $role->permissions)
+            ->roles->flatMap(function ($role) {
+                if (! app(PermissionRegistrar::class)->projects) {
+                    return $role->permissions;
+                }
+
+                $projectId = getPermissionsProjectId();
+                $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+
+                return $role->permissions->filter(function ($permission) use ($projectsKey, $projectId) {
+                    $permissionProject = $permission->getAttribute($projectsKey);
+
+                    return is_null($permissionProject) || $permissionProject === $projectId;
+                });
+            })
             ->sort()->values();
     }
 

@@ -21,24 +21,24 @@ class CreateRole extends Command
     {
         $roleClass = app(RoleContract::class);
 
-        $projectIdAux = getPermissionsProjectId();
-        setPermissionsProjectId($this->option('project-id') ?: null);
+        $targetProjectId = $this->option('project-id');
+        $originalProjectId = getPermissionsProjectId();
 
-        if (! $permissionRegistrar->projects && $this->option('project-id')) {
+        if (! $permissionRegistrar->projects && $targetProjectId) {
             $this->warn('Projects feature disabled, argument --project-id has no effect. Either enable it in permissions config file or remove --project-id parameter');
 
             return;
         }
 
-        $role = $roleClass::findOrCreate($this->argument('name'), $this->argument('guard'));
-        setPermissionsProjectId($projectIdAux);
-
-        $projects_key = $permissionRegistrar->projectsKey;
-        if ($permissionRegistrar->projects && $this->option('project-id') && is_null($role->$projects_key)) {
-            $this->warn("Role `{$role->name}` already exists on the global project; argument --project-id has no effect");
+        if ($targetProjectId !== null) {
+            setPermissionsProjectId($targetProjectId);
         }
 
+        $role = $roleClass::findOrCreate($this->argument('name'), $this->argument('guard'));
+
         $role->givePermissionTo($this->makePermissions($this->argument('permissions')));
+
+        setPermissionsProjectId($originalProjectId);
 
         $this->info("Role `{$role->name}` ".($role->wasRecentlyCreated ? 'created' : 'updated'));
     }

@@ -45,15 +45,6 @@ class Role extends Model implements RoleContract
         $attributes['guard_name'] ??= Guard::getDefaultName(static::class);
 
         $params = ['name' => $attributes['name'], 'guard_name' => $attributes['guard_name']];
-        if (app(PermissionRegistrar::class)->projects) {
-            $projectsKey = app(PermissionRegistrar::class)->projectsKey;
-
-            if (array_key_exists($projectsKey, $attributes)) {
-                $params[$projectsKey] = $attributes[$projectsKey];
-            } else {
-                $attributes[$projectsKey] = getPermissionsProjectId();
-            }
-        }
         if (static::findByParam($params)) {
             throw RoleAlreadyExists::create($attributes['name'], $attributes['guard_name']);
         }
@@ -138,7 +129,7 @@ class Role extends Model implements RoleContract
         $role = static::findByParam(['name' => $name, 'guard_name' => $guardName]);
 
         if (! $role) {
-            return static::query()->create(['name' => $name, 'guard_name' => $guardName] + (app(PermissionRegistrar::class)->projects ? [app(PermissionRegistrar::class)->projectsKey => getPermissionsProjectId()] : []));
+            return static::query()->create(['name' => $name, 'guard_name' => $guardName]);
         }
 
         return $role;
@@ -152,15 +143,6 @@ class Role extends Model implements RoleContract
     protected static function findByParam(array $params = []): ?RoleContract
     {
         $query = static::query();
-
-        if (app(PermissionRegistrar::class)->projects) {
-            $projectsKey = app(PermissionRegistrar::class)->projectsKey;
-
-            $query->where(fn ($q) => $q->whereNull($projectsKey)
-                ->orWhere($projectsKey, $params[$projectsKey] ?? getPermissionsProjectId())
-            );
-            unset($params[$projectsKey]);
-        }
 
         foreach ($params as $key => $value) {
             $query->where($key, $value);

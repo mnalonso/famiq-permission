@@ -37,13 +37,35 @@ class Show extends Command
 
             $roles = $roleClass::whereGuardName($guard)
                 ->with('permissions')
-                ->when($projectsEnabled, fn ($q) => $q->orderBy($project_key))
-                ->orderBy('name')->get()->mapWithKeys(fn ($role) => [
-                    $role->name.'_'.($projectsEnabled ? ($role->$project_key ?: '') : '') => [
-                        'permissions' => $role->permissions->pluck($permissionClass->getKeyName()),
-                        $project_key => $projectsEnabled ? $role->$project_key : null,
-                    ],
-                ]);
+                ->orderBy('name')
+                ->get()
+                ->flatMap(function ($role) use ($projectsEnabled, $project_key, $permissionClass) {
+                    if (! $projectsEnabled) {
+                        return [
+                            $role->name => [
+                                'permissions' => $role->permissions->pluck($permissionClass->getKeyName()),
+                                $project_key => null,
+                                'label' => $role->name,
+                            ],
+                        ];
+                    }
+
+                    $grouped = $role->permissions->groupBy($project_key);
+
+                    if ($grouped->isEmpty()) {
+                        $grouped = collect([null => collect()]);
+                    }
+
+                    return $grouped->mapWithKeys(function ($permissions, $projectId) use ($role, $permissionClass, $project_key) {
+                        return [
+                            $role->name.'_'.($projectId ?? 'global') => [
+                                'permissions' => $permissions->pluck($permissionClass->getKeyName()),
+                                $project_key => $projectId,
+                                'label' => $role->name,
+                            ],
+                        ];
+                    });
+                });
 
             $permissions = $permissionClass::whereGuardName($guard)->orderBy('name')->pluck('name', $permissionClass->getKeyName());
 
@@ -53,20 +75,15 @@ class Show extends Command
             );
 
             if ($projectsEnabled) {
-                $projects = $roles->groupBy($project_key)->values()->map(
-                    fn ($group, $id) => new TableCell('Project ID: '.($id ?: 'NULL'), ['colspan' => $group->count()])
-                );
+                $projects = $roles->groupBy($project_key)->mapWithKeys(fn ($group, $id) => [
+                    $id ?? 'global' => new TableCell('Project ID: '.($id ?? 'NULL'), ['colspan' => $group->count()]),
+                ]);
             }
 
             $this->table(
                 array_merge(
-                    isset($projects) ? $projects->prepend(new TableCell(''))->toArray() : [],
-                    $roles->keys()->map(function ($val) {
-                        $name = explode('_', $val);
-                        array_pop($name);
-
-                        return implode('_', $name);
-                    })
+                    isset($projects) ? $projects->values()->prepend(new TableCell(''))->toArray() : [],
+                    $roles->map(fn ($data) => $projectsEnabled ? sprintf('%s (Project: %s)', $data['label'], $data[$project_key] ?? 'global') : $data['label'])
                         ->prepend(new TableCell(''))->toArray(),
                 ),
                 $body->toArray(),

@@ -43,7 +43,15 @@ class Permission extends Model implements PermissionContract
     {
         $attributes['guard_name'] ??= Guard::getDefaultName(static::class);
 
-        $permission = static::getPermission(['name' => $attributes['name'], 'guard_name' => $attributes['guard_name']]);
+        $params = ['name' => $attributes['name'], 'guard_name' => $attributes['guard_name']];
+
+        if (app(PermissionRegistrar::class)->projects) {
+            $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+            $params[$projectsKey] = $attributes[$projectsKey] ?? getPermissionsProjectId();
+            $attributes[$projectsKey] = $params[$projectsKey];
+        }
+
+        $permission = static::getPermission($params);
 
         if ($permission) {
             throw PermissionAlreadyExists::create($attributes['name'], $attributes['guard_name']);
@@ -89,7 +97,13 @@ class Permission extends Model implements PermissionContract
     public static function findByName(string $name, ?string $guardName = null): PermissionContract
     {
         $guardName ??= Guard::getDefaultName(static::class);
-        $permission = static::getPermission(['name' => $name, 'guard_name' => $guardName]);
+        $params = ['name' => $name, 'guard_name' => $guardName];
+
+        if (app(PermissionRegistrar::class)->projects) {
+            $params[app(PermissionRegistrar::class)->projectsKey] = getPermissionsProjectId();
+        }
+
+        $permission = static::getPermission($params);
         if (! $permission) {
             throw PermissionDoesNotExist::create($name, $guardName);
         }
@@ -124,10 +138,16 @@ class Permission extends Model implements PermissionContract
     public static function findOrCreate(string $name, ?string $guardName = null): PermissionContract
     {
         $guardName ??= Guard::getDefaultName(static::class);
-        $permission = static::getPermission(['name' => $name, 'guard_name' => $guardName]);
+        $params = ['name' => $name, 'guard_name' => $guardName];
+
+        if (app(PermissionRegistrar::class)->projects) {
+            $params[app(PermissionRegistrar::class)->projectsKey] = getPermissionsProjectId();
+        }
+
+        $permission = static::getPermission($params);
 
         if (! $permission) {
-            return static::query()->create(['name' => $name, 'guard_name' => $guardName]);
+            return static::query()->create($params);
         }
 
         return $permission;
@@ -150,6 +170,10 @@ class Permission extends Model implements PermissionContract
      */
     protected static function getPermission(array $params = []): ?PermissionContract
     {
+        if (app(PermissionRegistrar::class)->projects) {
+            $params[app(PermissionRegistrar::class)->projectsKey] ??= getPermissionsProjectId();
+        }
+
         /** @var PermissionContract|null */
         return static::getPermissions($params, true)->first();
     }

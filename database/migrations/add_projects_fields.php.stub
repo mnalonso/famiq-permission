@@ -28,16 +28,6 @@ return new class extends Migration
             throw new \Exception('Error: project_foreign_key on config/permission.php not loaded. Run [php artisan config:clear] and try again.');
         }
 
-        if (! Schema::hasColumn($tableNames['roles'], $columnNames['project_foreign_key'])) {
-            Schema::table($tableNames['roles'], function (Blueprint $table) use ($columnNames) {
-                $table->unsignedBigInteger($columnNames['project_foreign_key'])->nullable()->after('id');
-                $table->index($columnNames['project_foreign_key'], 'roles_project_foreign_key_index');
-
-                $table->dropUnique('roles_name_guard_name_unique');
-                $table->unique([$columnNames['project_foreign_key'], 'name', 'guard_name']);
-            });
-        }
-
         if (! Schema::hasColumn($tableNames['model_has_permissions'], $columnNames['project_foreign_key'])) {
             Schema::table($tableNames['model_has_permissions'], function (Blueprint $table) use ($tableNames, $columnNames, $pivotPermission) {
                 $table->unsignedBigInteger($columnNames['project_foreign_key'])->default('1');
@@ -54,6 +44,20 @@ return new class extends Migration
                     $table->foreign($pivotPermission)
                         ->references('id')->on($tableNames['permissions'])->onDelete('cascade');
                 }
+            });
+        }
+
+        if (! Schema::hasColumn($tableNames['permissions'], $columnNames['project_foreign_key'])) {
+            Schema::table($tableNames['permissions'], function (Blueprint $table) use ($columnNames) {
+                $table->unsignedBigInteger($columnNames['project_foreign_key'])->nullable()->after('guard_name');
+                $table->index($columnNames['project_foreign_key'], 'permissions_project_foreign_key_index');
+
+                $table->dropUnique('permissions_name_guard_name_unique');
+                $table->unique([
+                    $columnNames['project_foreign_key'],
+                    'name',
+                    'guard_name',
+                ], 'permissions_project_name_guard_unique');
             });
         }
 

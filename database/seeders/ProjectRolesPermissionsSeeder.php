@@ -129,6 +129,8 @@ class ProjectRolesPermissionsSeeder extends Seeder
             );
         }
 
+        $rolePermissions = [];
+
         foreach (self::PROJECT_DEFINITIONS as $definition) {
             $projectId = $definition['id'];
 
@@ -143,14 +145,22 @@ class ProjectRolesPermissionsSeeder extends Seeder
             }
 
             foreach ($definition['roles'] as $roleName => $permissionNames) {
-                $role = Role::query()->firstOrCreate([
-                    'name' => $roleName,
-                    'guard_name' => 'web',
-                    $projectKey => $projectId,
-                ]);
-
-                $role->syncPermissions($permissionNames);
+                $rolePermissions[$roleName] = array_values(array_unique(array_merge(
+                    $rolePermissions[$roleName] ?? [],
+                    $permissionNames,
+                )));
             }
+        }
+
+        \setPermissionsProjectId(null);
+
+        foreach ($rolePermissions as $roleName => $permissionNames) {
+            $role = Role::query()->firstOrCreate([
+                'name' => $roleName,
+                'guard_name' => 'web',
+            ]);
+
+            $role->syncPermissions($permissionNames);
         }
 
         $registrar->forgetCachedPermissions();
