@@ -13,6 +13,22 @@ class ProjectHasRolesTest extends HasRolesTest
 
     /** @test */
     #[Test]
+    public function it_allows_assigning_roles_without_a_project()
+    {
+        setPermissionsProjectId(null);
+
+        $this->testUser->assignRole('testRole');
+
+        $this->assertTrue($this->testUser->hasRole('testRole'));
+        $this->assertDatabaseHas('model_has_roles', [
+            config('permission.column_names.model_morph_key') => $this->testUser->getKey(),
+            app(\Spatie\Permission\PermissionRegistrar::class)->pivotRole => $this->testUserRole->getKey(),
+            config('permission.column_names.project_foreign_key') => null,
+        ]);
+    }
+
+    /** @test */
+    #[Test]
     public function it_deletes_pivot_table_entries_when_deleting_models()
     {
         $user1 = User::create(['email' => 'user2@test.com']);

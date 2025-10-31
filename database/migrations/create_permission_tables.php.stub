@@ -71,11 +71,15 @@ return new class extends Migration
                 ->on($tableNames['permissions'])
                 ->onDelete('cascade');
             if ($projects) {
-                $table->unsignedBigInteger($columnNames['project_foreign_key']);
+                $table->unsignedBigInteger($columnNames['project_foreign_key'])->nullable();
                 $table->index($columnNames['project_foreign_key'], 'model_has_permissions_project_foreign_key_index');
 
-                $table->primary([$columnNames['project_foreign_key'], $pivotPermission, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_permissions_permission_model_type_primary');
+                $table->unique([
+                    $columnNames['project_foreign_key'],
+                    $pivotPermission,
+                    $columnNames['model_morph_key'],
+                    'model_type',
+                ], 'model_has_permissions_project_permission_model_type_unique');
             } else {
                 $table->primary([$pivotPermission, $columnNames['model_morph_key'], 'model_type'],
                     'model_has_permissions_permission_model_type_primary');
@@ -95,11 +99,15 @@ return new class extends Migration
                 ->on($tableNames['roles'])
                 ->onDelete('cascade');
             if ($projects) {
-                $table->unsignedBigInteger($columnNames['project_foreign_key']);
+                $table->unsignedBigInteger($columnNames['project_foreign_key'])->nullable();
                 $table->index($columnNames['project_foreign_key'], 'model_has_roles_project_foreign_key_index');
 
-                $table->primary([$columnNames['project_foreign_key'], $pivotRole, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_roles_role_model_type_primary');
+                $table->unique([
+                    $columnNames['project_foreign_key'],
+                    $pivotRole,
+                    $columnNames['model_morph_key'],
+                    'model_type',
+                ], 'model_has_roles_project_role_model_type_unique');
             } else {
                 $table->primary([$pivotRole, $columnNames['model_morph_key'], 'model_type'],
                     'model_has_roles_role_model_type_primary');

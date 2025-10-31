@@ -12,6 +12,22 @@ class ProjectHasPermissionsTest extends HasPermissionsTest
 
     /** @test */
     #[Test]
+    public function it_allows_assigning_direct_permissions_without_a_project()
+    {
+        setPermissionsProjectId(null);
+
+        $this->testUser->givePermissionTo('edit-articles');
+
+        $this->assertTrue($this->testUser->hasDirectPermission('edit-articles'));
+        $this->assertDatabaseHas('model_has_permissions', [
+            config('permission.column_names.model_morph_key') => $this->testUser->getKey(),
+            app(\Spatie\Permission\PermissionRegistrar::class)->pivotPermission => $this->testUserPermission->getKey(),
+            config('permission.column_names.project_foreign_key') => null,
+        ]);
+    }
+
+    /** @test */
+    #[Test]
     public function it_can_assign_same_and_different_permission_on_same_user_on_different_projects()
     {
         setPermissionsProjectId(1);

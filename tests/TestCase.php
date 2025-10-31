@@ -250,7 +250,9 @@ abstract class TestCase extends Orchestra
                 'references(\'id\') // permission id',
                 'references(\'id\') // role id',
                 'bigIncrements',
+                'unsignedBigInteger($pivotRole)->nullable();',
                 'unsignedBigInteger($pivotRole)',
+                'unsignedBigInteger($pivotPermission)->nullable();',
                 'unsignedBigInteger($pivotPermission)',
             ],
             [
@@ -259,7 +261,9 @@ abstract class TestCase extends Orchestra
                 'references(\'permission_test_id\')',
                 'references(\'role_test_id\')',
                 'uuid',
+                'uuid($pivotRole)->nullable(false);',
                 'uuid($pivotRole)->nullable(false)',
+                'uuid($pivotPermission)->nullable(false);',
                 'uuid($pivotPermission)->nullable(false)',
             ],
             file_get_contents(__DIR__.'/../database/migrations/create_permission_tables.php.stub')
