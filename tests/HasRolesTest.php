@@ -433,8 +433,8 @@ class HasRolesTest extends TestCase
 
         $necessaryQueriesCount = 2;
 
-        // Teams reloads relation, adding an extra query
-        if (app(PermissionRegistrar::class)->teams) {
+        // Projects reloads relation, adding an extra query
+        if (app(PermissionRegistrar::class)->projects) {
             $necessaryQueriesCount++;
         }
 

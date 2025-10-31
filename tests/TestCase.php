@@ -45,7 +45,7 @@ abstract class TestCase extends Orchestra
     protected $useCustomModels = false;
 
     /** @var bool */
-    protected $hasTeams = false;
+    protected $hasProjects = false;
 
     protected static $migration;
 
@@ -73,8 +73,8 @@ abstract class TestCase extends Orchestra
 
         $this->setUpBaseTestPermissions($this->app);
 
-        if ($this->hasTeams) {
-            setPermissionsTeamId(1);
+        if ($this->hasProjects) {
+            setPermissionsProjectId(1);
         }
 
         if ($this->usePassport) {
@@ -115,10 +115,10 @@ abstract class TestCase extends Orchestra
     {
         Model::preventLazyLoading();
         $app['config']->set('permission.register_permission_check_method', true);
-        $app['config']->set('permission.teams', $this->hasTeams);
+        $app['config']->set('permission.projects', $this->hasProjects);
         $app['config']->set('permission.testing', true); // fix sqlite
         $app['config']->set('permission.column_names.model_morph_key', 'model_test_id');
-        $app['config']->set('permission.column_names.team_foreign_key', 'team_test_id');
+        $app['config']->set('permission.column_names.project_foreign_key', 'project_test_id');
         $app['config']->set('database.default', 'sqlite');
         $app['config']->set('database.connections.sqlite', [
             'driver' => 'sqlite',

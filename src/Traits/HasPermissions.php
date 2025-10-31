@@ -34,15 +34,15 @@ trait HasPermissions
                 return;
             }
 
-            $teams = app(PermissionRegistrar::class)->teams;
-            app(PermissionRegistrar::class)->teams = false;
+            $projects = app(PermissionRegistrar::class)->projects;
+            app(PermissionRegistrar::class)->projects = false;
             if (! is_a($model, Permission::class)) {
                 $model->permissions()->detach();
             }
             if (is_a($model, Role::class)) {
                 $model->users()->detach();
             }
-            app(PermissionRegistrar::class)->teams = $teams;
+            app(PermissionRegistrar::class)->projects = $projects;
         });
     }
 
@@ -87,14 +87,14 @@ trait HasPermissions
             app(PermissionRegistrar::class)->pivotPermission
         );
 
-        if (! app(PermissionRegistrar::class)->teams) {
+        if (! app(PermissionRegistrar::class)->projects) {
             return $relation;
         }
 
-        $teamsKey = app(PermissionRegistrar::class)->teamsKey;
-        $relation->withPivot($teamsKey);
+        $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+        $relation->withPivot($projectsKey);
 
-        return $relation->wherePivot($teamsKey, getPermissionsTeamId());
+        return $relation->wherePivot($projectsKey, getPermissionsProjectId());
     }
 
     /**
@@ -397,24 +397,24 @@ trait HasPermissions
         $permissions = $this->collectPermissions($permissions);
 
         $model = $this->getModel();
-        $teamPivot = app(PermissionRegistrar::class)->teams && ! is_a($this, Role::class) ?
-            [app(PermissionRegistrar::class)->teamsKey => getPermissionsTeamId()] : [];
+        $projectPivot = app(PermissionRegistrar::class)->projects && ! is_a($this, Role::class) ?
+            [app(PermissionRegistrar::class)->projectsKey => getPermissionsProjectId()] : [];
 
         if ($model->exists) {
             $currentPermissions = $this->permissions->map(fn ($permission) => $permission->getKey())->toArray();
 
-            $this->permissions()->attach(array_diff($permissions, $currentPermissions), $teamPivot);
+            $this->permissions()->attach(array_diff($permissions, $currentPermissions), $projectPivot);
             $model->unsetRelation('permissions');
         } else {
             $class = \get_class($model);
             $saved = false;
 
             $class::saved(
-                function ($object) use ($permissions, $model, $teamPivot, &$saved) {
+                function ($object) use ($permissions, $model, $projectPivot, &$saved) {
                     if ($saved || $model->getKey() != $object->getKey()) {
                         return;
                     }
-                    $model->permissions()->attach($permissions, $teamPivot);
+                    $model->permissions()->attach($permissions, $projectPivot);
                     $model->unsetRelation('permissions');
                     $saved = true;
                 }

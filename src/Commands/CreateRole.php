@@ -13,7 +13,7 @@ class CreateRole extends Command
         {name : The name of the role}
         {guard? : The name of the guard}
         {permissions? : A list of permissions to assign to the role, separated by | }
-        {--team-id=}';
+        {--project-id=}';
 
     protected $description = 'Create a role';
 
@@ -21,21 +21,21 @@ class CreateRole extends Command
     {
         $roleClass = app(RoleContract::class);
 
-        $teamIdAux = getPermissionsTeamId();
-        setPermissionsTeamId($this->option('team-id') ?: null);
+        $projectIdAux = getPermissionsProjectId();
+        setPermissionsProjectId($this->option('project-id') ?: null);
 
-        if (! $permissionRegistrar->teams && $this->option('team-id')) {
-            $this->warn('Teams feature disabled, argument --team-id has no effect. Either enable it in permissions config file or remove --team-id parameter');
+        if (! $permissionRegistrar->projects && $this->option('project-id')) {
+            $this->warn('Projects feature disabled, argument --project-id has no effect. Either enable it in permissions config file or remove --project-id parameter');
 
             return;
         }
 
         $role = $roleClass::findOrCreate($this->argument('name'), $this->argument('guard'));
-        setPermissionsTeamId($teamIdAux);
+        setPermissionsProjectId($projectIdAux);
 
-        $teams_key = $permissionRegistrar->teamsKey;
-        if ($permissionRegistrar->teams && $this->option('team-id') && is_null($role->$teams_key)) {
-            $this->warn("Role `{$role->name}` already exists on the global team; argument --team-id has no effect");
+        $projects_key = $permissionRegistrar->projectsKey;
+        if ($permissionRegistrar->projects && $this->option('project-id') && is_null($role->$projects_key)) {
+            $this->warn("Role `{$role->name}` already exists on the global project; argument --project-id has no effect");
         }
 
         $role->givePermissionTo($this->makePermissions($this->argument('permissions')));

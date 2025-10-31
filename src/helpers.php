@@ -8,22 +8,22 @@ if (! function_exists('getModelForGuard')) {
 
 }
 
-if (! function_exists('setPermissionsTeamId')) {
+if (! function_exists('setPermissionsProjectId')) {
     /**
      * @param  int|string|null|\Illuminate\Database\Eloquent\Model  $id
      */
-    function setPermissionsTeamId($id)
+    function setPermissionsProjectId($id)
     {
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($id);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsProjectId($id);
     }
 }
 
-if (! function_exists('getPermissionsTeamId')) {
+if (! function_exists('getPermissionsProjectId')) {
     /**
      * @return int|string|null
      */
-    function getPermissionsTeamId()
+    function getPermissionsProjectId()
     {
-        return app(\Spatie\Permission\PermissionRegistrar::class)->getPermissionsTeamId();
+        return app(\Spatie\Permission\PermissionRegistrar::class)->getPermissionsProjectId();
     }
 }

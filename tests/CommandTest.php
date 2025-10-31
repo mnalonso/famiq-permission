@@ -148,25 +148,25 @@ class CommandTest extends TestCase
 
     /** @test */
     #[Test]
-    public function it_can_setup_teams_upgrade()
+    public function it_can_setup_projects_upgrade()
     {
-        config()->set('permission.teams', true);
+        config()->set('permission.projects', true);
 
-        $this->artisan('permission:setup-teams')
+        $this->artisan('permission:setup-projects')
             ->expectsQuestion('Proceed with the migration creation?', 'yes')
             ->assertExitCode(0);
 
-        $matchingFiles = glob(database_path('migrations/*_add_teams_fields.php'));
+        $matchingFiles = glob(database_path('migrations/*_add_projects_fields.php'));
         $this->assertTrue(count($matchingFiles) > 0);
 
-        $AddTeamsFields = require $matchingFiles[count($matchingFiles) - 1];
-        $AddTeamsFields->up();
-        $AddTeamsFields->up(); // test upgrade teams migration fresh
+        $AddProjectsFields = require $matchingFiles[count($matchingFiles) - 1];
+        $AddProjectsFields->up();
+        $AddProjectsFields->up(); // test upgrade projects migration fresh
 
-        Role::create(['name' => 'new-role', 'team_test_id' => 1]);
+        Role::create(['name' => 'new-role', 'project_test_id' => 1]);
         $role = Role::where('name', 'new-role')->first();
         $this->assertNotNull($role);
-        $this->assertSame(1, (int) $role->team_test_id);
+        $this->assertSame(1, (int) $role->project_test_id);
 
         // remove migration
         foreach ($matchingFiles as $file) {
@@ -176,27 +176,27 @@ class CommandTest extends TestCase
 
     /** @test */
     #[Test]
-    public function it_can_show_roles_by_teams()
+    public function it_can_show_roles_by_projects()
     {
-        config()->set('permission.teams', true);
+        config()->set('permission.projects', true);
         app(\Spatie\Permission\PermissionRegistrar::class)->initializeCache();
 
         Role::where('name', 'testRole2')->delete();
         Role::create(['name' => 'testRole_2']);
-        Role::create(['name' => 'testRole_Team', 'team_test_id' => 1]);
-        Role::create(['name' => 'testRole_Team', 'team_test_id' => 2]); // same name different team
+        Role::create(['name' => 'testRole_Project', 'project_test_id' => 1]);
+        Role::create(['name' => 'testRole_Project', 'project_test_id' => 2]); // same name different project
         Artisan::call('permission:show');
 
         $output = Artisan::output();
 
-        // |    | Team ID: NULL         | Team ID: 1    | Team ID: 2    |
-        // |    | testRole | testRole_2 | testRole_Team | testRole_Team |
+        // |    | Project ID: NULL         | Project ID: 1    | Project ID: 2    |
+        // |    | testRole | testRole_2 | testRole_Project | testRole_Project |
         if (method_exists($this, 'assertMatchesRegularExpression')) {
-            $this->assertMatchesRegularExpression('/\|\s+\|\s+Team ID: NULL\s+\|\s+Team ID: 1\s+\|\s+Team ID: 2\s+\|/', $output);
-            $this->assertMatchesRegularExpression('/\|\s+\|\s+testRole\s+\|\s+testRole_2\s+\|\s+testRole_Team\s+\|\s+testRole_Team\s+\|/', $output);
+            $this->assertMatchesRegularExpression('/\|\s+\|\s+Project ID: NULL\s+\|\s+Project ID: 1\s+\|\s+Project ID: 2\s+\|/', $output);
+            $this->assertMatchesRegularExpression('/\|\s+\|\s+testRole\s+\|\s+testRole_2\s+\|\s+testRole_Project\s+\|\s+testRole_Project\s+\|/', $output);
         } else { // phpUnit 9/8
-            $this->assertRegExp('/\|\s+\|\s+Team ID: NULL\s+\|\s+Team ID: 1\s+\|\s+Team ID: 2\s+\|/', $output);
-            $this->assertRegExp('/\|\s+\|\s+testRole\s+\|\s+testRole_2\s+\|\s+testRole_Team\s+\|\s+testRole_Team\s+\|/', $output);
+            $this->assertRegExp('/\|\s+\|\s+Project ID: NULL\s+\|\s+Project ID: 1\s+\|\s+Project ID: 2\s+\|/', $output);
+            $this->assertRegExp('/\|\s+\|\s+testRole\s+\|\s+testRole_2\s+\|\s+testRole_Project\s+\|\s+testRole_Project\s+\|/', $output);
         }
     }
 
@@ -226,7 +226,7 @@ class CommandTest extends TestCase
 
     /** @test */
     #[Test]
-    public function it_can_respond_to_about_command_with_teams()
+    public function it_can_respond_to_about_command_with_projects()
     {
         if (! class_exists(InstalledVersions::class) || ! class_exists(AboutCommand::class)) {
             $this->markTestSkipped();
@@ -237,12 +237,12 @@ class CommandTest extends TestCase
 
         app(\Spatie\Permission\PermissionRegistrar::class)->initializeCache();
 
-        config()->set('permission.teams', true);
+        config()->set('permission.projects', true);
 
         Artisan::call('about');
         $output = str_replace("\r\n", "\n", Artisan::output());
 
-        $pattern = '/Spatie Permissions[ .\n]*Features Enabled[ .]*Teams[ .\n]*Version/';
+        $pattern = '/Spatie Permissions[ .\n]*Features Enabled[ .]*Projects[ .\n]*Version/';
         if (method_exists($this, 'assertMatchesRegularExpression')) {
             $this->assertMatchesRegularExpression($pattern, $output);
         } else { // phpUnit 9/8

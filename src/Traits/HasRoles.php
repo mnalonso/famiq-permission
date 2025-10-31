@@ -25,13 +25,13 @@ trait HasRoles
                 return;
             }
 
-            $teams = app(PermissionRegistrar::class)->teams;
-            app(PermissionRegistrar::class)->teams = false;
+            $projects = app(PermissionRegistrar::class)->projects;
+            app(PermissionRegistrar::class)->projects = false;
             $model->roles()->detach();
             if (is_a($model, Permission::class)) {
                 $model->users()->detach();
             }
-            app(PermissionRegistrar::class)->teams = $teams;
+            app(PermissionRegistrar::class)->projects = $projects;
         });
     }
 
@@ -57,16 +57,16 @@ trait HasRoles
             app(PermissionRegistrar::class)->pivotRole
         );
 
-        if (! app(PermissionRegistrar::class)->teams) {
+        if (! app(PermissionRegistrar::class)->projects) {
             return $relation;
         }
 
-        $teamsKey = app(PermissionRegistrar::class)->teamsKey;
-        $relation->withPivot($teamsKey);
-        $teamField = config('permission.table_names.roles').'.'.$teamsKey;
+        $projectsKey = app(PermissionRegistrar::class)->projectsKey;
+        $relation->withPivot($projectsKey);
+        $projectField = config('permission.table_names.roles').'.'.$projectsKey;
 
-        return $relation->wherePivot($teamsKey, getPermissionsTeamId())
-            ->where(fn ($q) => $q->whereNull($teamField)->orWhere($teamField, getPermissionsTeamId()));
+        return $relation->wherePivot($projectsKey, getPermissionsProjectId())
+            ->where(fn ($q) => $q->whereNull($projectField)->orWhere($projectField, getPermissionsProjectId()));
     }
 
     /**
@@ -150,29 +150,29 @@ trait HasRoles
         $roles = $this->collectRoles($roles);
 
         $model = $this->getModel();
-        $teamPivot = app(PermissionRegistrar::class)->teams && ! is_a($this, Permission::class) ?
-            [app(PermissionRegistrar::class)->teamsKey => getPermissionsTeamId()] : [];
+        $projectPivot = app(PermissionRegistrar::class)->projects && ! is_a($this, Permission::class) ?
+            [app(PermissionRegistrar::class)->projectsKey => getPermissionsProjectId()] : [];
 
         if ($model->exists) {
-            if (app(PermissionRegistrar::class)->teams) {
-                // explicit reload in case team has been changed since last load
+            if (app(PermissionRegistrar::class)->projects) {
+                // explicit reload in case project has been changed since last load
                 $this->load('roles');
             }
 
             $currentRoles = $this->roles->map(fn ($role) => $role->getKey())->toArray();
 
-            $this->roles()->attach(array_diff($roles, $currentRoles), $teamPivot);
+            $this->roles()->attach(array_diff($roles, $currentRoles), $projectPivot);
             $model->unsetRelation('roles');
         } else {
             $class = \get_class($model);
             $saved = false;
 
             $class::saved(
-                function ($object) use ($roles, $model, $teamPivot, &$saved) {
+                function ($object) use ($roles, $model, $projectPivot, &$saved) {
                     if ($saved || $model->getKey() != $object->getKey()) {
                         return;
                     }
-                    $model->roles()->attach($roles, $teamPivot);
+                    $model->roles()->attach($roles, $projectPivot);
                     $model->unsetRelation('roles');
                     $saved = true;
                 }

@@ -31,11 +31,11 @@ When creating roles you can also create and link permissions at the same time:
 php artisan permission:create-role writer web "create articles|edit articles"
 ```
 
-When creating roles with teams enabled you can set the team id by adding the `--team-id` parameter:
+When creating roles with projects enabled you can set the project id by adding the `--project-id` parameter:
 
 ```bash
-php artisan permission:create-role --team-id=1 writer
-php artisan permission:create-role writer api --team-id=1
+php artisan permission:create-role --project-id=1 writer
+php artisan permission:create-role writer api --project-id=1
 ```
 
 ## Displaying roles and permissions in the console
