@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -102,6 +104,30 @@ class ProjectRolesPermissionsSeeder extends Seeder
         $projectKey = $registrar->projectsKey;
 
         $registrar->forgetCachedPermissions();
+
+        $tableNames = config('permission.table_names');
+        $projectsTable = $tableNames['projects'] ?? null;
+
+        if ($projectsTable && Schema::hasTable($projectsTable)) {
+            $now = now();
+            $projects = [];
+
+            foreach (self::PROJECT_DEFINITIONS as $code => $definition) {
+                $projects[] = [
+                    'id' => $definition['id'],
+                    'code' => $code,
+                    'name' => $definition['label'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            DB::table($projectsTable)->upsert(
+                $projects,
+                ['id'],
+                ['code', 'name', 'updated_at']
+            );
+        }
 
         foreach (self::PROJECT_DEFINITIONS as $definition) {
             $projectId = $definition['id'];

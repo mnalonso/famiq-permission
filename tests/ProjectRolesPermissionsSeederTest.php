@@ -3,6 +3,7 @@
 namespace Spatie\Permission\Tests;
 
 use Database\Seeders\ProjectRolesPermissionsSeeder;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -19,6 +20,17 @@ class ProjectRolesPermissionsSeederTest extends TestCase
         (new ProjectRolesPermissionsSeeder())->run();
 
         $projectKey = app(PermissionRegistrar::class)->projectsKey;
+        $projectsTable = config('permission.table_names.projects');
+
+        $this->assertEquals(
+            [
+                'A' => 'Proyecto A',
+                'B' => 'Proyecto B',
+                'C' => 'Proyecto C',
+                'D' => 'Proyecto D',
+            ],
+            DB::table($projectsTable)->pluck('name', 'code')->all()
+        );
 
         foreach (ProjectRolesPermissionsSeeder::PROJECT_DEFINITIONS as $definition) {
             $projectId = $definition['id'];

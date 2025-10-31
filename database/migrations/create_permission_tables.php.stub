@@ -20,6 +20,15 @@ return new class extends Migration
         throw_if(empty($tableNames), Exception::class, 'Error: config/permission.php not loaded. Run [php artisan config:clear] and try again.');
         throw_if($projects && empty($columnNames['project_foreign_key'] ?? null), Exception::class, 'Error: project_foreign_key on config/permission.php not loaded. Run [php artisan config:clear] and try again.');
 
+        if ($projects || config('permission.testing')) {
+            Schema::create($tableNames['projects'], static function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('code')->unique();
+                $table->string('name');
+                $table->timestamps();
+            });
+        }
+
         Schema::create($tableNames['permissions'], static function (Blueprint $table) {
             // $table->engine('InnoDB');
             $table->bigIncrements('id'); // permission id
@@ -130,5 +139,9 @@ return new class extends Migration
         Schema::drop($tableNames['model_has_permissions']);
         Schema::drop($tableNames['roles']);
         Schema::drop($tableNames['permissions']);
+
+        if (array_key_exists('projects', $tableNames ?? [])) {
+            Schema::dropIfExists($tableNames['projects']);
+        }
     }
 };

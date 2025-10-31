@@ -69,6 +69,13 @@ return [
          */
 
         'role_has_permissions' => 'role_has_permissions',
+
+        /*
+         * When using projects, this table stores the available projects that can be
+         * referenced by the foreign key defined in `column_names.project_foreign_key`.
+         */
+
+        'projects' => 'projects',
     ],
 
     'column_names' => [
