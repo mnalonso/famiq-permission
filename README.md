@@ -1,99 +1,126 @@
-<div align="left">
-    <a href="https://spatie.be/open-source?utm_source=github&utm_medium=banner&utm_campaign=laravel-permission">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://spatie.be/packages/header/laravel-permission/html/dark.webp">
-        <img alt="Logo for laravel-permission" src="https://spatie.be/packages/header/laravel-permission/html/light.webp">
-      </picture>
-    </a>
+# Project Roles for Laravel
 
-<h1>Associate users with permissions and roles</h1>
+Package reusable para Laravel 10/11+ que implementa roles y permisos globales y por proyecto sin depender de `spatie/laravel-permission`. Incluye migrations publicables, config, modelos, trait para `User` y un servicio central para todas las comprobaciones.
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/spatie/laravel-permission.svg?style=flat-square)](https://packagist.org/packages/spatie/laravel-permission)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/spatie/laravel-permission/run-tests.yml?branch=main&label=Tests)](https://github.com/spatie/laravel-permission/actions?query=workflow%3ATests+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/spatie/laravel-permission.svg?style=flat-square)](https://packagist.org/packages/spatie/laravel-permission)
-    
-</div>
+## Instalación
 
-## Documentation, Installation, and Usage Instructions
+```bash
+composer require famiq/permission
+```
 
-See the [documentation](https://spatie.be/docs/laravel-permission/) for detailed installation and usage instructions.
-
-## What It Does
-This package allows you to manage user permissions and roles in a database.
-
-Once installed you can do stuff like this:
+Si tu app no usa auto discovery, registra el service provider y el alias manualmente:
 
 ```php
-// Adding permissions to a user
-$user->givePermissionTo('edit articles');
+'providers' => [
+    Famiq\Permission\PermissionServiceProvider::class,
+],
 
-// Adding permissions via a role
-$user->assignRole('writer');
-
-$role->givePermissionTo('edit articles');
+'aliases' => [
+    'FamiqPermission' => Famiq\Permission\Facades\FamiqPermission::class,
+],
 ```
 
-Because all permissions will be registered on [Laravel's gate](https://laravel.com/docs/authorization), you can check if a user has a permission with Laravel's default `can` function:
+Publica el archivo de configuración y las migrations si querés personalizarlas:
+
+```bash
+php artisan vendor:publish --tag=famiq-permission-config
+php artisan vendor:publish --tag=famiq-permission-migrations
+```
+
+El config `famiq-permission.php` te permite definir los modelos `User` y `Project`, las tablas externas (users/projects), prefijos de tablas del package y si se crean o no claves foráneas.
+
+## Tablas que crea el package
+
+1. `fp_roles`
+2. `fp_permissions`
+3. `fp_role_permission`
+4. `fp_project_role`
+5. `fp_user_role`
+
+> Las tablas `users` y `projects` se asumen existentes en tu aplicación.
+
+## Trait HasProjectRoles
+
+Agrega el trait al modelo User configurado:
 
 ```php
-$user->can('edit articles');
+use Famiq\Permission\Traits\HasProjectRoles;
+
+class User extends Authenticatable
+{
+    use HasProjectRoles;
+}
 ```
 
-## Support us
+El trait expone:
 
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/laravel-permission.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/laravel-permission)
-
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
-
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
-
-## Changelog
-
-Please see [CHANGELOG](CHANGELOG.md) for more information what has changed recently.
-
-## Contributing
-
-Please see [CONTRIBUTING](https://github.com/spatie/.github/blob/main/CONTRIBUTING.md) for details.
-
-### Testing
-
-``` bash
-composer test
+```php
+$user->hasRoleGlobal('admin');
+$user->hasRoleInProject('gerente', $projectId);
+$user->canGlobal('ingresar');
+$user->canInProject('leer_encuestas', $project);
 ```
 
-### Security
+También deja disponibles las relaciones `userRoles`, `roles`, `rolesGlobal()` y `rolesInProject($project)`.
 
-If you discover any security-related issues, please email [security@spatie.be](mailto:security@spatie.be) instead of using the issue tracker.
+## Servicio central
 
-## Postcardware
+`Famiq\Permission\Services\PermissionService` resuelve las comprobaciones evaluando roles globales, roles habilitados por proyecto, permisos generales y permisos específicos del proyecto solicitado.
 
-You're free to use this package, but if it makes it to your production environment we highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using.
+Podés inyectar el servicio o usar la facade `FamiqPermission`:
 
-Our address is: Spatie, Kruikstraat 22, 2018 Antwerp, Belgium.
+```php
+FamiqPermission::userHasPermissionInProject($user, 'leer_encuestas', $projectId);
+```
 
-We publish all received postcards [on our company website](https://spatie.be/en/opensource/postcards).
+## Ejemplo completo de uso
 
-## Credits
+```php
+use Famiq\Permission\Models\Permission;
+use Famiq\Permission\Models\ProjectRole;
+use Famiq\Permission\Models\Role;
+use Famiq\Permission\Models\UserRole;
+use App\Models\Project;
+use App\Models\User;
 
-- [Chris Brown](https://github.com/drbyte)
-- [Freek Van der Herten](https://github.com/freekmurze)
-- [All Contributors](../../contributors)
+$project = Project::create(['name' => 'Encuestas']);
 
-This package is heavily based on [Jeffrey Way](https://twitter.com/jeffrey_way)'s awesome [Laracasts](https://laracasts.com) lessons
-on [permissions and roles](https://laracasts.com/series/whats-new-in-laravel-5-1/episodes/16). His original code
-can be found [in this repo on GitHub](https://github.com/laracasts/laravel-5-roles-and-permissions-demo).
+$admin = Role::create(['name' => 'Admin', 'slug' => 'admin', 'scope' => 'global']);
+$manager = Role::create(['name' => 'Gerente Encuestas', 'slug' => 'gerente_encuestas', 'scope' => 'project']);
 
-Special thanks to [Alex Vanderbist](https://github.com/AlexVanderbist) who greatly helped with `v2`, and to [Chris Brown](https://github.com/drbyte) for his longtime support  helping us maintain the package.
+$login = Permission::create(['name' => 'Ingresar', 'slug' => 'ingresar']);
+$readSurveys = Permission::create(['name' => 'Leer Encuestas', 'slug' => 'leer_encuestas', 'project_id' => $project->id]);
 
-Special thanks to [Caneco](https://twitter.com/caneco) for the original logo.
+$admin->permissions()->sync([$login->id]);
+$manager->permissions()->sync([$login->id, $readSurveys->id]);
 
-## Alternatives
+ProjectRole::create(['project_id' => $project->id, 'role_id' => $manager->id]);
 
-- [Povilas Korop](https://twitter.com/@povilaskorop) did an excellent job listing the alternatives [in an article on Laravel News](https://laravel-news.com/two-best-roles-permissions-packages). In that same article, he compares laravel-permission to [Joseph Silber](https://github.com/JosephSilber)'s [Bouncer]((https://github.com/JosephSilber/bouncer)), which in our book is also an excellent package.
-- [santigarcor/laratrust](https://github.com/santigarcor/laratrust) implements team support
-- [ultraware/roles](https://github.com/ultraware/roles) (archived) takes a slightly different approach to its features.
-- [zizaco/entrust](https://github.com/zizaco/entrust) offers some wildcard pattern matching
+$user = User::factory()->create();
 
-## License
+UserRole::create(['user_id' => $user->id, 'role_id' => $admin->id]);
+UserRole::create(['user_id' => $user->id, 'role_id' => $manager->id, 'project_id' => $project->id]);
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+$user->hasRoleGlobal('admin'); // true
+$user->hasRoleInProject('gerente_encuestas', $project); // true
+
+$user->canGlobal('ingresar'); // true
+$user->canInProject('leer_encuestas', $project); // true
+```
+
+## Seeders sugeridos
+
+1. Crear proyectos base (p.ej. Encuestas).
+2. Crear permisos globales y específicos: `ingresar`, `leer_encuestas`, etc.
+3. Crear roles y definir su scope (`global`, `project` o `both`).
+4. Asociar permisos a roles (`role_permission`).
+5. Habilitar los roles que se pueden usar en cada proyecto mediante `ProjectRole`.
+6. Asignar roles globales y roles por proyecto a usuarios usando `UserRole` (con `project_id` null para globales).
+
+## Tests
+
+El repositorio incluye pruebas con Orchestra Testbench que verifican el servicio y el trait utilizando una base SQLite in-memory.
+
+## Licencia
+
+MIT

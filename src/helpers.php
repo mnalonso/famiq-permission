@@ -1,29 +1,12 @@
 <?php
 
-if (! function_exists('getModelForGuard')) {
-    function getModelForGuard(string $guard): ?string
-    {
-        return Spatie\Permission\Guard::getModelForGuard($guard);
-    }
+declare(strict_types=1);
 
-}
-
-if (! function_exists('setPermissionsProjectId')) {
-    /**
-     * @param  int|string|null|\Illuminate\Database\Eloquent\Model  $id
-     */
-    function setPermissionsProjectId($id)
+if (! function_exists('famiq_permission_table_name')) {
+    function famiq_permission_table_name(string $table): string
     {
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsProjectId($id);
-    }
-}
+        $prefix = config('famiq-permission.table_prefix', 'fp_');
 
-if (! function_exists('getPermissionsProjectId')) {
-    /**
-     * @return int|string|null
-     */
-    function getPermissionsProjectId()
-    {
-        return app(\Spatie\Permission\PermissionRegistrar::class)->getPermissionsProjectId();
+        return $prefix.$table;
     }
 }
