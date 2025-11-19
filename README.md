@@ -72,6 +72,10 @@ Asumiendo el prefijo por defecto `fp_`, se generan:
 4. `fp_project_role`
 5. `fp_user_role`
 
+Las tablas `fp_roles` y `fp_permissions` incluyen una columna numérica `order` para controlar el orden de despliegue.
+Adicionalmente, `fp_permissions` incorpora el campo opcional `type` (string de 32 caracteres) para clasificar cada permiso según
+el dominio de tu aplicación.
+
 > Las tablas `users` y `projects` deben existir en tu aplicación. El package solo referencia sus claves primarias a través de la configuración.
 
 ## Modelos Eloquent del vendor
@@ -144,7 +148,7 @@ La lógica evalúa simultáneamente:
 1. Crear proyectos (p.ej. `Encuestas`).
 2. Crear permisos globales (`ingresar`) y específicos (`leer_encuestas`, ligado al proyecto de Encuestas).
 3. Crear roles con su `scope` (`admin` global, `gerente_encuestas` project).
-4. Asociar permisos a roles vía `Role::permissions()`.
+4. Asociar permisos a roles vía `Role::permissions()` o usando los helpers `Role::givePermissionTo()` / `Role::revokePermissionTo()`.
 5. Declarar qué roles están habilitados en cada proyecto usando `ProjectRole`.
 6. Asignar roles a usuarios con `UserRole`, dejando `project_id` en `null` para roles globales.
 
@@ -170,8 +174,8 @@ $readSurveys = Permission::create([
     'project_id' => $project->id,
 ]);
 
-$admin->permissions()->sync([$login->id]);
-$manager->permissions()->sync([$login->id, $readSurveys->id]);
+$admin->givePermissionTo($login);
+$manager->givePermissionTo($login, $readSurveys);
 
 ProjectRole::create(['project_id' => $project->id, 'role_id' => $manager->id]);
 

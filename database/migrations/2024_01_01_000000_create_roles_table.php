@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->string('name');
             $table->string('slug')->unique();
             $table->enum('scope', ['global', 'project', 'both'])->default('both');
+            $table->unsignedInteger('order')->default(0);
             $table->timestamps();
         });
     }
