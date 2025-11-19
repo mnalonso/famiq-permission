@@ -72,6 +72,10 @@ Asumiendo el prefijo por defecto `fp_`, se generan:
 4. `fp_project_role`
 5. `fp_user_role`
 
+Las tablas `fp_roles` y `fp_permissions` incluyen una columna numérica `order` para controlar el orden de despliegue.
+Adicionalmente, `fp_permissions` incorpora el campo opcional `type` (string de 32 caracteres) para clasificar cada permiso según
+el dominio de tu aplicación.
+
 > Las tablas `users` y `projects` deben existir en tu aplicación. El package solo referencia sus claves primarias a través de la configuración.
 
 ## Modelos Eloquent del vendor

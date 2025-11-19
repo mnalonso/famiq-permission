@@ -17,6 +17,7 @@ class Role extends Model
         'name',
         'slug',
         'scope',
+        'order',
     ];
 
     /**

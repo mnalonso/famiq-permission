@@ -16,6 +16,8 @@ return new class extends Migration {
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
+            $table->unsignedInteger('order')->default(0);
+            $table->string('type', 32)->nullable();
             $table->unsignedBigInteger('project_id')->nullable();
             $table->timestamps();
 
