@@ -7,6 +7,8 @@ namespace Famiq\Permission\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use InvalidArgumentException;
 
 /**
  * Role entity that can be assigned globally or per project.
@@ -62,5 +64,57 @@ class Role extends Model
     public function userRoles(): HasMany
     {
         return $this->hasMany(UserRole::class, 'role_id');
+    }
+
+    /**
+     * Asocia uno o varios permisos al rol sin sobrescribir los existentes.
+     *
+     * @param  Permission|int|string|array<int, Permission|int|string>  ...$permissions
+     */
+    public function givePermissionTo($permissions): self
+    {
+        $permissions = func_num_args() === 1 && is_array($permissions)
+            ? $permissions
+            : func_get_args();
+
+        if ($permissions === []) {
+            throw new InvalidArgumentException('Debe proporcionar al menos un permiso.');
+        }
+
+        $permissionIds = array_map(function ($permission): int {
+            return $this->resolvePermissionId($permission);
+        }, $permissions);
+
+        $this->permissions()->syncWithoutDetaching(array_unique($permissionIds));
+
+        return $this;
+    }
+
+    /**
+     * Normaliza el identificador del permiso recibido.
+     *
+     * @param  Permission|int|string  $permission
+     */
+    protected function resolvePermissionId($permission): int
+    {
+        if ($permission instanceof Permission) {
+            return (int) $permission->getKey();
+        }
+
+        if (is_numeric($permission)) {
+            return (int) $permission;
+        }
+
+        if (is_string($permission)) {
+            $permissionModel = Permission::query()->where('slug', $permission)->first();
+
+            if ($permissionModel === null) {
+                throw (new ModelNotFoundException())->setModel(Permission::class, [$permission]);
+            }
+
+            return (int) $permissionModel->getKey();
+        }
+
+        throw new InvalidArgumentException('Referencia de permiso inválida.');
     }
 }
