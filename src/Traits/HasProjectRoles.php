@@ -98,6 +98,20 @@ trait HasProjectRoles
         return $this->projectRolesService()->userHasPermission($this, $permissionSlug);
     }
 
+    /*
+     * Se agrega método para compatibilidad con interfaz de Spatie
+     *
+     * @param  int|object|null  $project
+    */
+    public function hasPermission(string $permissionSlug, $project = null): bool
+    {
+        if ($project) {
+            return $this->canInProject($permissionSlug, $project);
+        } else {
+            return $this->canAnywhere($permissionSlug);
+        }
+    }
+
     /**
      * Obtiene la instancia del servicio central desde el contenedor.
      */
