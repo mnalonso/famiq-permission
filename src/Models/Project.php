@@ -1,8 +1,12 @@
 <?php
 
-namespace App\Models;
+declare(strict_types=1);
 
-class Project
+namespace Famiq\Permission\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Project extends Model
 {
     protected $table = "projects";
     /**
