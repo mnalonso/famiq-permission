@@ -159,7 +159,7 @@ class HasRolesTraitTest extends TestCase
 
         $this->assertSame(
             ['consultar', 'ingresar', 'leer'],
-            collect($user->getAllPermissions())->sort()->values()->all()
+            $user->getAllPermissions()->sort()->values()->all()
         );
     }
 }

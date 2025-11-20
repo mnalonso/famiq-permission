@@ -7,6 +7,7 @@ namespace Famiq\Permission\Traits;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Famiq\Permission\Models\Permission;
 use Famiq\Permission\Models\Role;
 use Famiq\Permission\Models\UserRole;
@@ -131,9 +132,9 @@ trait HasRoles
     /**
      * Retrieves every permission slug available to the user globally or in any project.
      *
-     * @return array<int, string>
+     * @return Collection<int, string>
      */
-    public function getAllPermissions(): array
+    public function getAllPermissions(): Collection
     {
         $permissionTable = famiq_permission_table_name('permissions');
         $rolePermissionTable = famiq_permission_table_name('role_permission');
@@ -159,8 +160,7 @@ trait HasRoles
                     });
             })
             ->distinct()
-            ->pluck('slug')
-            ->all();
+            ->pluck('slug');
     }
 
     /**
