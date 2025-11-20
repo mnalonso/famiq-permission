@@ -114,7 +114,7 @@ $user->canAnywhere('leer_encuestas');
 $user->hasPermissionTo('ingresar');
 $user->hasAnyPermission(['ingresar', 'leer_encuestas']);
 $user->hasAllPermissions('ingresar', 'leer_encuestas');
-$user->getAllPermissions();
+$user->getAllPermissions(); // collection of permission slugs
 $user->getRoleNames();
 $user->assignRole('admin');
 $user->removeRole('admin');
