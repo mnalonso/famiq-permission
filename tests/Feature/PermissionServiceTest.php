@@ -14,7 +14,7 @@ use Famiq\Permission\Tests\Fixtures\User;
 use Famiq\Permission\Tests\TestCase;
 
 /**
- * Pruebas de integración del PermissionService y el trait HasProjectRoles.
+ * Pruebas de integración del PermissionService y el trait HasRoles.
  */
 class PermissionServiceTest extends TestCase
 {

@@ -8,7 +8,7 @@ Package Laravel 10/11+ que implementa un sistema de roles y permisos globales y 
 - Permisos globales (sin proyecto) y permisos exclusivos por proyecto.
 - Tabla `project_role` para controlar qué roles están habilitados en cada proyecto.
 - Servicio `PermissionService` y facade `FamiqPermission` con métodos `hasRole*` y `can*`.
-- Trait `HasProjectRoles` para exponer helpers directamente desde tu modelo `User`.
+- Trait `HasRoles` (compatible con la API de Spatie) para exponer helpers directamente desde tu modelo `User`.
 - Configuración flexible para modelos externos (`User`, `Project`) y nombres de tablas.
 - Migrations publicables con prefijo configurable (por defecto `fp_`).
 - Pruebas integradas con Orchestra Testbench como referencia de uso.
@@ -87,16 +87,16 @@ el dominio de tu aplicación.
 
 Estos modelos ya incluyen las relaciones necesarias (`permissions`, `projects`, `userRoles`, etc.) para administrar los datos desde seeders o paneles de administración.
 
-## Trait `HasProjectRoles`
+## Trait `HasRoles`
 
 Agrega el trait al modelo `User` de tu app para obtener relaciones y helpers:
 
 ```php
-use Famiq\Permission\Traits\HasProjectRoles;
+use Famiq\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasProjectRoles;
+    use HasRoles;
 }
 ```
 
@@ -109,6 +109,15 @@ $user->hasRoleInProject('gerente_encuestas', $project); // acepta instancia, ID 
 $user->canGlobal('ingresar');
 $user->canInProject('leer_encuestas', $projectId);
 $user->canAnywhere('leer_encuestas');
+
+// Compatibilidad con Spatie
+$user->hasPermissionTo('ingresar');
+$user->hasAnyPermission(['ingresar', 'leer_encuestas']);
+$user->hasAllPermissions('ingresar', 'leer_encuestas');
+$user->getRoleNames();
+$user->assignRole('admin');
+$user->removeRole('admin');
+$user->syncRoles(['admin']);
 ```
 
 Además se exponen las relaciones:
