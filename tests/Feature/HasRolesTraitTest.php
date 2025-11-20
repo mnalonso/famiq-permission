@@ -127,4 +127,39 @@ class HasRolesTraitTest extends TestCase
         $user->syncRoles([$projectRole], $project);
         $this->assertTrue($user->hasRoleInProject('gerente', $project));
     }
+
+    /**
+     * Ensures getAllPermissions returns every reachable permission slug.
+     */
+    public function test_get_all_permissions_returns_all_slugs(): void
+    {
+        $user = User::create([
+            'name' => 'Permissions User',
+            'email' => 'permissions@example.com',
+            'password' => bcrypt('secret'),
+        ]);
+
+        $projectA = Project::create(['name' => 'Encuestas']);
+        $projectB = Project::create(['name' => 'Finanzas']);
+
+        $globalRole = Role::create(['name' => 'Admin', 'slug' => 'admin', 'scope' => 'global']);
+        $projectRole = Role::create(['name' => 'Gerente', 'slug' => 'gerente', 'scope' => 'project']);
+
+        $login = Permission::create(['name' => 'Ingresar', 'slug' => 'ingresar']);
+        $surveyRead = Permission::create(['name' => 'Leer', 'slug' => 'leer', 'project_id' => $projectA->id]);
+        $financeRead = Permission::create(['name' => 'Consultar', 'slug' => 'consultar', 'project_id' => $projectB->id]);
+
+        $globalRole->permissions()->sync([$login->id, $surveyRead->id]);
+        $projectRole->permissions()->sync([$financeRead->id]);
+
+        ProjectRole::create(['project_id' => $projectB->id, 'role_id' => $projectRole->id]);
+
+        $user->assignRole($globalRole);
+        $user->assignRole($projectRole, $projectB);
+
+        $this->assertSame(
+            ['consultar', 'ingresar', 'leer'],
+            collect($user->getAllPermissions())->sort()->values()->all()
+        );
+    }
 }

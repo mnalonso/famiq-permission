@@ -6,6 +6,8 @@ namespace Famiq\Permission\Traits;
 
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
+use Famiq\Permission\Models\Permission;
 use Famiq\Permission\Models\Role;
 use Famiq\Permission\Models\UserRole;
 use Famiq\Permission\Services\PermissionService;
@@ -124,6 +126,41 @@ trait HasRoles
             ->flatten()
             ->unique('id')
             ->values();
+    }
+
+    /**
+     * Retrieves every permission slug available to the user globally or in any project.
+     *
+     * @return array<int, string>
+     */
+    public function getAllPermissions(): array
+    {
+        $permissionTable = famiq_permission_table_name('permissions');
+        $rolePermissionTable = famiq_permission_table_name('role_permission');
+        $userRoleTable = famiq_permission_table_name('user_role');
+
+        return Permission::query()
+            ->select($permissionTable.'.slug')
+            ->join($rolePermissionTable, $rolePermissionTable.'.permission_id', '=', $permissionTable.'.id')
+            ->join($userRoleTable, $userRoleTable.'.role_id', '=', $rolePermissionTable.'.role_id')
+            ->where($userRoleTable.'.user_id', $this->getKey())
+            ->where(function (Builder $builder) use ($permissionTable, $userRoleTable): void {
+                $builder
+                    ->where(function (Builder $query) use ($permissionTable, $userRoleTable): void {
+                        $query->whereNull($permissionTable.'.project_id')
+                            ->whereNull($userRoleTable.'.project_id');
+                    })
+                    ->orWhere(function (Builder $query) use ($permissionTable, $userRoleTable): void {
+                        $query->whereNotNull($permissionTable.'.project_id')
+                            ->where(function (Builder $inner) use ($permissionTable, $userRoleTable): void {
+                                $inner->whereNull($userRoleTable.'.project_id')
+                                    ->orWhereColumn($permissionTable.'.project_id', $userRoleTable.'.project_id');
+                            });
+                    });
+            })
+            ->distinct()
+            ->pluck('slug')
+            ->all();
     }
 
     /**
